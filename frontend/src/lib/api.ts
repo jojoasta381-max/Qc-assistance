@@ -13,6 +13,7 @@ import {
   ProcessingJob,
   Project,
   QCFinding,
+  QCReportSummary,
   QCRun,
   User,
 } from "../types";
@@ -69,6 +70,19 @@ async function request<T>(endpoint: string, options: FetchOptions = {}, fallback
     }
     throw err;
   }
+}
+
+async function downloadBlob(endpoint: string, token?: string | null): Promise<Blob> {
+  const url = `${API_BASE}${endpoint}`;
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new Error(`Failed to download report (${response.status})`);
+  }
+  return await response.blob();
 }
 
 export const qcApi = {
@@ -454,6 +468,36 @@ export const qcApi = {
 
   getRawThumbnailUrl(documentId: string, pageNumber: number = 1): string {
     return `${API_BASE}/documents/${documentId}/pages/${pageNumber}/raw-thumbnail`;
+  },
+
+  // --- Phase 8: Reporting Endpoints ---
+  async getReportSummary(runId: string, token?: string | null): Promise<QCReportSummary> {
+    return request<QCReportSummary>(`/qc-runs/${runId}/report/summary`, { token }, {
+      qc_run_id: runId,
+      document_id: "doc-sample",
+      filename: "sample_schematic.pdf",
+      overall_status: "FAIL",
+      standards_applied: ["IPC-WHMA-A-620D", "UL 508A", "ISO 7200"],
+      total_findings: 3,
+      severity_breakdown: { CRITICAL: 1, MAJOR: 1, MINOR: 1, INFO: 0 },
+      checks_summary: { total: 11, passed: 8, failed: 2, review: 1 },
+      model_version: "qc-hybrid-engine-v1.0",
+      rules_version: "ruleset-ipc620-ul508a-v1.0",
+      processing_time_ms: 180,
+      created_at: new Date().toISOString(),
+    });
+  },
+
+  async downloadPdfReport(runId: string, token?: string | null): Promise<Blob> {
+    return downloadBlob(`/qc-runs/${runId}/report/pdf`, token);
+  },
+
+  async downloadXlsxReport(runId: string, token?: string | null): Promise<Blob> {
+    return downloadBlob(`/qc-runs/${runId}/report/xlsx`, token);
+  },
+
+  async getFindingDetail(runId: string, findingId: string, token?: string | null): Promise<QCFinding> {
+    return request<QCFinding>(`/qc-runs/${runId}/findings/${findingId}`, { token }, MOCK_FINDINGS[0]);
   },
 };
 

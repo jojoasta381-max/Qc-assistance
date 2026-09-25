@@ -7,6 +7,41 @@ All significant architectural decisions, codebase modifications, schema changes,
 
 ---
 
+## [Phase 8: Reporting] — 2026-09-25
+
+### Added
+- **Audit-Grade ISO 9001 / IPC-620 PDF Report Generator (`backend/src/reports/pdf_generator.py`)**:
+  - `PDFReportGenerator`: Full ReportLab-powered document generator outputting audit-grade compliance reports with Spandsons Horizon Engineering Pvt. Ltd. corporate branding.
+  - Section 1: Executive Summary & Defect Metrics table (Total checks, passed, failed, critical count, major count, minor count, info count).
+  - Section 2: Discrepancy Findings Catalog (Itemized table with sequential finding IDs `D-001`, page numbers, severity color-coded badges, categories, detailed descriptions, observed schematic evidence, and standard remediation actions).
+  - Section 3: Engineering Sign-Off & Verification block (ISO 9001 compliance audit verification, prepared by AI engine, reviewed by Lead Systems Engineer, engineering approval signature line).
+  - Clean pass handling: Congratulatory zero-defect notice when drawings satisfy all standards.
+- **Production Multi-Sheet Excel (XLSX) Matrix (`backend/src/reports/xlsx_generator.py`)**:
+  - `XLSXReportGenerator`: OpenPyXL-powered multi-sheet audit workbook.
+  - Sheet 1 ("QC Summary"): Metadata header, client info, applied standards, ruleset version, audit timestamp (UTC), and key performance metrics.
+  - Sheet 2 ("Discrepancy Details"): Complete discrepancy findings matrix with severity conditional fill colors (`FEE2E2` critical, `FFEDD5` major, `FEF9C3` minor, `E0F2FE` info), confidence scores, observed evidence, and actionable recommendations.
+  - Sheet 3 ("Standards & Rules Reference"): Distinct standard rules catalog referenced by findings (`RULE-WG-001`, `RULE-CC-003`, etc.).
+  - Automated column width autofitting with clean cell borders and center alignment.
+- **Domain to Report Model Builder (`backend/src/reports/builder.py`)**:
+  - `build_analysis_result_from_db`: Converts database ORM entities (`QCRun`, `QCFinding`, `Document`) into standardized `QCAnalysisResult` domain objects for reporting.
+  - Robust mapping for severity enums, confidence levels, bounding boxes, and citations.
+- **FastAPI Reporting Endpoints (`backend/src/api/routers/qc_runs.py`)**:
+  - `GET /api/v1/qc-runs/{id}/report/pdf`: Streams generated PDF with `Content-Disposition: attachment; filename="QC_Report_{id}_{status}.pdf"`.
+  - `GET /api/v1/qc-runs/{id}/report/xlsx`: Streams generated Excel matrix with `Content-Disposition: attachment; filename="QC_Matrix_{id}_{status}.xlsx"`.
+  - `GET /api/v1/qc-runs/{id}/report/summary`: Returns JSON `QCReportSummaryResponse` with executive metrics, severity breakdown, and checks counts.
+  - `GET /api/v1/qc-runs/{id}/findings/{finding_id}`: Retrieves single finding detail by UUID or finding code (`D-001`).
+  - Full multi-tenant IDOR defense: verified 404 isolation across organizations.
+- **Frontend Report UI & Live Streaming Downloads (`frontend/src/components/SplitScreenViewer.tsx`, `frontend/src/lib/api.ts`)**:
+  - Replaced prototype placeholder alerts with live browser blob downloads via `URL.createObjectURL(blob)`.
+  - Added "Executive QC Audit Summary" interactive modal with KPI tiles, defect severity breakdown, and enforced standards tags.
+  - Added direct download buttons with loading spinner states and download success feedback.
+  - Updated API client with `downloadPdfReport`, `downloadXlsxReport`, `getReportSummary`, and `getFindingDetail`.
+- **Comprehensive Reporting Test Suite (`tests/unit/test_reports.py`)**:
+  - 9 unit and integration tests covering builder conversion, PDF generation, XLSX generation, conditional formatting, summary endpoint, PDF download, XLSX download, finding detail lookup, and multi-tenant IDOR protection.
+  - Total test suite expanded from 79 to **88 tests passing (100%)**.
+
+---
+
 ## [Phase 7: QC Pipeline] — 2026-09-25
 
 ### Added

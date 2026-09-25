@@ -161,3 +161,19 @@ class PageImageResponse(BaseModel):
     width: int
     height: int
 
+
+class QCReportSummaryResponse(BaseModel):
+    qc_run_id: str
+    document_id: str
+    filename: str
+    overall_status: str
+    standards_applied: List[str]
+    total_findings: int
+    severity_breakdown: Dict[str, int]
+    checks_summary: Dict[str, int]
+    model_version: str
+    rules_version: str
+    processing_time_ms: int
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+

@@ -195,3 +195,24 @@ export interface PageImageInfo {
   width: number;
   height: number;
 }
+
+export interface QCReportSummary {
+  qc_run_id: string;
+  document_id: string;
+  filename: string;
+  overall_status: OverallStatus;
+  standards_applied: string[];
+  total_findings: number;
+  severity_breakdown: Record<string, number>;
+  checks_summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    review: number;
+  };
+  model_version: string;
+  rules_version: string;
+  processing_time_ms: number;
+  created_at: string;
+  completed_at?: string | null;
+}

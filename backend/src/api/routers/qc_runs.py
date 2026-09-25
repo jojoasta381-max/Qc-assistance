@@ -4,6 +4,7 @@ Handles job dispatch, status polling, finding queries, and Server-Sent Events (S
 """
 
 import asyncio
+import io
 import json
 from typing import AsyncGenerator, List, Optional
 import uuid
@@ -14,9 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.models import Document, Organization, QCFinding, QCRun, User
 from ...infrastructure.queue import QCJobPayload, TaskQueueInterface
+from ...reports import PDFReportGenerator, XLSXReportGenerator, build_analysis_result_from_db
 from ..deps import get_db, get_queue
 from ..deps_auth import get_current_user
-from ..document_schemas import CreateQCRunRequest, QCFindingResponse, QCRunResponse
+from ..document_schemas import CreateQCRunRequest, QCFindingResponse, QCRunResponse, QCReportSummaryResponse
 
 router = APIRouter(prefix="/qc-runs", tags=["QC Runs & Findings"])
 
@@ -223,3 +225,194 @@ async def stream_qc_run_progress(
         yield f"event: complete\ndata: {json.dumps({'status': run.overall_status, 'percent': 100})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.get("/{qc_run_id}/report/summary", response_model=QCReportSummaryResponse)
+async def get_qc_report_summary(
+    qc_run_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve executive compliance summary for a completed QC run."""
+    run_stmt = (
+        select(QCRun)
+        .where(QCRun.id == qc_run_id)
+        .where(QCRun.organization_id == current_user.organization_id)
+    )
+    run = (await db.execute(run_stmt)).scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="QC run not found")
+
+    doc_stmt = select(Document).where(Document.id == run.document_id)
+    doc = (await db.execute(doc_stmt)).scalar_one_or_none()
+
+    findings_stmt = select(QCFinding).where(QCFinding.qc_run_id == qc_run_id)
+    findings = (await db.execute(findings_stmt)).scalars().all()
+
+    breakdown = {"CRITICAL": 0, "MAJOR": 0, "MINOR": 0, "INFO": 0}
+    for f in findings:
+        sev = (f.severity or "INFO").upper()
+        if sev in breakdown:
+            breakdown[sev] += 1
+        else:
+            breakdown["INFO"] += 1
+
+    return QCReportSummaryResponse(
+        qc_run_id=run.id,
+        document_id=run.document_id,
+        filename=doc.filename if doc else f"document_{run.document_id}.pdf",
+        overall_status=run.overall_status,
+        standards_applied=["IPC-WHMA-A-620D", "UL 508A", "ISO 7200"],
+        total_findings=len(findings),
+        severity_breakdown=breakdown,
+        checks_summary={
+            "total": run.checks_total,
+            "passed": run.checks_passed,
+            "failed": run.checks_failed,
+            "review": run.checks_review,
+        },
+        model_version=run.model_version,
+        rules_version=run.rules_version,
+        processing_time_ms=run.processing_time_ms,
+        created_at=run.created_at,
+        completed_at=run.completed_at,
+    )
+
+
+@router.get("/{qc_run_id}/report/pdf")
+async def download_qc_report_pdf(
+    qc_run_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate and stream an audit-grade ISO 9001 / IPC-620 compliant PDF inspection report.
+    Includes Spandsons Horizon Engineering branding and formal engineering sign-off block.
+    """
+    run_stmt = (
+        select(QCRun)
+        .where(QCRun.id == qc_run_id)
+        .where(QCRun.organization_id == current_user.organization_id)
+    )
+    run = (await db.execute(run_stmt)).scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="QC run not found")
+
+    doc_stmt = select(Document).where(Document.id == run.document_id)
+    doc = (await db.execute(doc_stmt)).scalar_one_or_none()
+
+    findings_stmt = (
+        select(QCFinding)
+        .where(QCFinding.qc_run_id == qc_run_id)
+        .order_by(QCFinding.page_number, QCFinding.finding_code)
+    )
+    findings = (await db.execute(findings_stmt)).scalars().all()
+
+    analysis_result = build_analysis_result_from_db(run, findings, doc)
+
+    pdf_buffer = io.BytesIO()
+    generator = PDFReportGenerator()
+    generator.generate(analysis_result, pdf_buffer)
+    pdf_buffer.seek(0)
+
+    filename = f"QC_Report_{run.id[:8]}_{analysis_result.overall_status.value}.pdf"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Access-Control-Expose-Headers": "Content-Disposition",
+    }
+    return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
+
+
+@router.get("/{qc_run_id}/report/xlsx")
+async def download_qc_report_xlsx(
+    qc_run_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate and stream a multi-sheet production Excel compliance matrix.
+    Includes executive audit summary, severity color-coded discrepancy matrix,
+    and standards rules reference sheet.
+    """
+    run_stmt = (
+        select(QCRun)
+        .where(QCRun.id == qc_run_id)
+        .where(QCRun.organization_id == current_user.organization_id)
+    )
+    run = (await db.execute(run_stmt)).scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="QC run not found")
+
+    doc_stmt = select(Document).where(Document.id == run.document_id)
+    doc = (await db.execute(doc_stmt)).scalar_one_or_none()
+
+    findings_stmt = (
+        select(QCFinding)
+        .where(QCFinding.qc_run_id == qc_run_id)
+        .order_by(QCFinding.page_number, QCFinding.finding_code)
+    )
+    findings = (await db.execute(findings_stmt)).scalars().all()
+
+    analysis_result = build_analysis_result_from_db(run, findings, doc)
+
+    xlsx_buffer = io.BytesIO()
+    generator = XLSXReportGenerator()
+    generator.generate(analysis_result, xlsx_buffer)
+    xlsx_buffer.seek(0)
+
+    filename = f"QC_Matrix_{run.id[:8]}_{analysis_result.overall_status.value}.xlsx"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Access-Control-Expose-Headers": "Content-Disposition",
+    }
+    return StreamingResponse(
+        xlsx_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers=headers,
+    )
+
+
+@router.get("/{qc_run_id}/findings/{finding_id}", response_model=QCFindingResponse)
+async def get_finding_detail(
+    qc_run_id: str,
+    finding_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve full details for a specific QC discrepancy finding."""
+    run_stmt = (
+        select(QCRun)
+        .where(QCRun.id == qc_run_id)
+        .where(QCRun.organization_id == current_user.organization_id)
+    )
+    run = (await db.execute(run_stmt)).scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="QC run not found")
+
+    finding_stmt = (
+        select(QCFinding)
+        .where(QCFinding.qc_run_id == qc_run_id)
+        .where((QCFinding.id == finding_id) | (QCFinding.finding_code == finding_id))
+    )
+    finding = (await db.execute(finding_stmt)).scalar_one_or_none()
+    if not finding:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Discrepancy finding not found")
+
+    return QCFindingResponse(
+        id=finding.id,
+        finding_code=finding.finding_code,
+        rule_id=finding.rule_id,
+        category=finding.category,
+        description=finding.description,
+        severity=finding.severity,
+        confidence_level=finding.confidence_level,
+        confidence_score=finding.confidence_score,
+        page_number=finding.page_number,
+        location_bbox=finding.location_bbox,
+        evidence_text=finding.evidence_text,
+        requirement_text=finding.requirement_text,
+        standard_citation=finding.standard_citation,
+        recommendation=finding.recommendation,
+        created_at=finding.created_at,
+    )
+
