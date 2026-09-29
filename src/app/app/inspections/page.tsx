@@ -45,7 +45,7 @@ export default function AppInspectionsPage() {
 
   const handleCheckExecuted = () => {
     setQuotaUsed((prev) => Math.min(prev + 1, quotaLimit));
-    showToast('QC Inspection complete! Drawing certified.');
+    showToast('QC Inspection complete! Findings loaded for engineering review.');
   };
 
   return (

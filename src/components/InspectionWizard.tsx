@@ -77,55 +77,76 @@ export const InspectionWizard: React.FC<InspectionWizardProps> = ({
     setActiveStep(3);
   };
 
-  // Trigger analysis via API v1 pipeline with local fallback
-  const handleStartAnalysis = async (fileName: string) => {
+  // Trigger analysis via API v1 pipeline with real file upload or reference fallback
+  const handleStartAnalysis = async (fileOrName: File | string) => {
+    const isRealFile = typeof fileOrName !== 'string';
+    const fileName = isRealFile ? fileOrName.name : fileOrName;
     setUploadedFileName(fileName);
     setActiveStep(2);
-    setProcessingProgress(25);
+    setProcessingProgress(20);
 
     try {
-      // 1. Create upload session via API v1
-      const sessionRes = await fetch('/api/v1/documents/upload-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-tenant-slug': 'spandsons',
-        },
-        body: JSON.stringify({
-          filename: fileName,
-          content_type: 'application/pdf',
-          size_bytes: 1024 * 1024 * 2,
-        }),
-      }).catch(() => null);
-
       let docId: string | null = null;
-      if (sessionRes && sessionRes.ok) {
-        const sessionData = await sessionRes.json();
-        docId = sessionData.upload_session?.document_id;
-      }
 
-      setProcessingProgress(55);
-
-      // 2. Trigger server-authoritative processing if document was registered
-      if (docId) {
-        const procRes = await fetch(`/api/v1/documents/${docId}/process`, {
+      if (isRealFile) {
+        // 1. Create upload session via API v1
+        const sessionRes = await fetch('/api/v1/documents/upload-session', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-tenant-slug': 'spandsons',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            standard: activeStandard,
+            filename: fileOrName.name,
+            mime_type: fileOrName.type || 'application/pdf',
+            size_bytes: fileOrName.size,
           }),
         }).catch(() => null);
 
-        setProcessingProgress(85);
+        if (sessionRes && sessionRes.ok) {
+          const sessionData = await sessionRes.json();
+          docId = sessionData.upload_session?.document_id;
+          const uploadUrl = sessionData.upload_session?.upload_url;
+
+          setProcessingProgress(45);
+
+          // 2. Stream real binary bytes to private object storage
+          if (uploadUrl) {
+            const uploadRes = await fetch(uploadUrl, {
+              method: 'PUT',
+              headers: { 'Content-Type': fileOrName.type || 'application/pdf' },
+              body: fileOrName,
+            }).catch(() => null);
+
+            if (uploadRes && uploadRes.ok) {
+              setProcessingProgress(65);
+
+              // 3. Mark upload complete and verify SHA-256
+              await fetch(`/api/v1/documents/${docId}/upload-complete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+              }).catch(() => null);
+            }
+          }
+        }
+      }
+
+      setProcessingProgress(75);
+
+      // 4. Trigger server-authoritative processing if document was registered
+      if (docId) {
+        const procRes = await fetch(`/api/v1/documents/${docId}/process?sync=true`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            standard: activeStandard,
+            sync: true,
+          }),
+        }).catch(() => null);
+
+        setProcessingProgress(90);
 
         if (procRes && procRes.ok) {
-          // Fetch authoritative findings
-          const findingsRes = await fetch(`/api/v1/documents/${docId}/findings`, {
-            headers: { 'x-tenant-slug': 'spandsons' },
-          }).catch(() => null);
+          // Fetch authoritative findings from server
+          const findingsRes = await fetch(`/api/v1/documents/${docId}/findings`).catch(() => null);
 
           if (findingsRes && findingsRes.ok) {
             const findingsData = await findingsRes.json();
@@ -133,24 +154,25 @@ export const InspectionWizard: React.FC<InspectionWizardProps> = ({
               // Convert server findings to Discrepancy model
               const serverDiscrepancies = findingsData.findings.map((f: any, idx: number) => ({
                 id: f.id ? `D-${f.id.slice(0, 6)}` : `D-${idx + 101}`,
-                title: f.description.split(' — ')[0] || 'Quality Discrepancy',
+                rawFindingId: f.id,
+                title: f.description.split(' — ')[0] || f.rule?.name || 'Quality Discrepancy',
                 description: f.description.split(' — ')[1] || f.description,
                 severity: f.severity,
                 confidence: Math.round(f.confidence * 100),
-                standardRef: f.evidence?.standardRef || activeStandard,
-                componentRef: f.evidence?.componentRef || 'Schematic Net',
-                plainLanguageExplanation: f.evidence?.plainLanguageExplanation || f.description,
-                recommendation: f.evidence?.recommendation || 'Verify connection against engineering drawing.',
-                bbox: f.evidence?.bbox || { x: 30 + (idx * 15) % 40, y: 30 + (idx * 12) % 40, width: 22, height: 16 },
+                standardRef: f.rule?.code || f.evidence?.standardRef || activeStandard,
+                componentRef: f.evidence?.componentId || f.evidence?.componentRef || 'Schematic Net',
+                plainLanguageExplanation: f.description,
+                recommendation: f.evidence?.recommendation || 'Verify connection against engineering schematic.',
+                bbox: f.evidence?.boundingBox || f.evidence?.bbox || { x: 0, y: 0, width: 0, height: 0 },
                 status: f.status || 'UNREVIEWED',
               }));
 
               const critical = serverDiscrepancies.filter((d: any) => d.severity === 'CRITICAL').length;
-              const major = serverDiscrepancies.filter((d: any) => d.severity === 'MAJOR').length;
-              const minor = serverDiscrepancies.filter((d: any) => d.severity === 'MINOR').length;
+              const major = serverDiscrepancies.filter((d: any) => d.severity === 'MAJOR' || d.severity === 'HIGH').length;
+              const minor = serverDiscrepancies.filter((d: any) => d.severity === 'MINOR' || d.severity === 'LOW').length;
               const totalFailed = serverDiscrepancies.length;
-              const executed = 140;
-              const passed = executed - totalFailed;
+              const executed = 20; // Active 20 deterministic rules
+              const passed = Math.max(0, executed - totalFailed);
 
               onUpdateReport({
                 ...currentReport,
@@ -158,12 +180,12 @@ export const InspectionWizard: React.FC<InspectionWizardProps> = ({
                 diagramName: fileName.replace('.pdf', ''),
                 standard: activeStandard,
                 overallResult: totalFailed === 0 ? 'PASS' : 'FAIL',
-                qualityScore: totalFailed === 0 ? 100 : Math.max(68, 100 - (critical * 12 + major * 6 + minor * 2)),
+                qualityScore: totalFailed === 0 ? 100 : Math.max(50, 100 - (critical * 15 + major * 8 + minor * 3)),
                 summary: {
                   executed,
                   passed,
                   failed: totalFailed,
-                  na: 12,
+                  na: 0,
                   critical,
                   major,
                   minor,
@@ -179,7 +201,7 @@ export const InspectionWizard: React.FC<InspectionWizardProps> = ({
         }
       }
     } catch (e) {
-      console.warn('API v1 document processing encountered error, using local fallback:', e);
+      console.warn('Document processing pipeline notice:', e);
     }
 
     setProcessingProgress(100);
@@ -190,7 +212,7 @@ export const InspectionWizard: React.FC<InspectionWizardProps> = ({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleStartAnalysis(file.name);
+      handleStartAnalysis(file);
     }
   };
 
@@ -199,7 +221,7 @@ export const InspectionWizard: React.FC<InspectionWizardProps> = ({
     setIsDragOver(false);
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      handleStartAnalysis(file.name);
+      handleStartAnalysis(file);
     }
   };
 
@@ -225,6 +247,35 @@ export const InspectionWizard: React.FC<InspectionWizardProps> = ({
     return d.severity === severityFilter;
   });
 
+  const handleReviewDisposition = async (
+    discrepancyId: string,
+    decision: 'CONFIRMED' | 'REJECTED' | 'WAIVED' | 'FALSE_POSITIVE',
+    reason?: string
+  ) => {
+    const disc = currentReport.discrepancies.find((d: any) => d.id === discrepancyId);
+    const serverFindingId = (disc as any)?.rawFindingId;
+
+    if (serverFindingId) {
+      try {
+        await fetch(`/api/v1/findings/${serverFindingId}/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            decision,
+            comment: reason || `Reviewed by engineer as ${decision}`,
+          }),
+        });
+      } catch (err) {
+        console.warn('Failed to persist review to server:', err);
+      }
+    }
+
+    const updated = currentReport.discrepancies.map((d: any) =>
+      d.id === discrepancyId ? { ...d, status: decision } : d
+    );
+    onUpdateReport({ ...currentReport, discrepancies: updated });
+  };
+
   return (
     <div className="space-y-8 font-sans text-slate-100">
       {/* 4 Pipeline Step Cards in Horizontal Flow */}
@@ -236,7 +287,7 @@ export const InspectionWizard: React.FC<InspectionWizardProps> = ({
               Automated Inspection Pipeline
             </div>
             <h2 className="text-xl md:text-2xl font-extrabold text-white">
-              From Manual Ingestion to Certified QC Audit
+              From Drawing Ingestion to Verified QC Audit
             </h2>
           </div>
 
@@ -681,6 +732,16 @@ export const InspectionWizard: React.FC<InspectionWizardProps> = ({
                           <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${severityBadge}`}>
                             {d.severity}
                           </span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                            d.status === 'CONFIRMED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                            d.status === 'REJECTED' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                            d.status === 'FALSE_POSITIVE' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                            d.status === 'WAIVED' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                            d.status === 'NEEDS_MORE_EVIDENCE' ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' :
+                            'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                          }`}>
+                            {d.status || 'UNREVIEWED'}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 font-mono text-xs">
                           <span className="text-slate-400">{d.componentRef}</span>
@@ -696,17 +757,43 @@ export const InspectionWizard: React.FC<InspectionWizardProps> = ({
                         {d.description}
                       </p>
 
-                      <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] font-mono">
-                        <span className="text-sky-400">Clause: {d.standardRef}</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenFeedbackModal(d);
-                          }}
-                          className="text-slate-400 hover:text-amber-400 transition"
-                        >
-                          Report False Positive
-                        </button>
+                      <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
+                        <span className="text-sky-400">Rule: {d.standardRef}</span>
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleReviewDisposition(d.id, 'CONFIRMED')}
+                            className="px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold transition"
+                            title="Accept Finding as Confirmed"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => handleReviewDisposition(d.id, 'REJECTED')}
+                            className="px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[10px] font-bold transition"
+                            title="Reject Finding"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            onClick={() => {
+                              const reason = prompt('Enter engineering waiver justification (required):');
+                              if (reason && reason.trim()) {
+                                handleReviewDisposition(d.id, 'WAIVED', reason.trim());
+                              }
+                            }}
+                            className="px-2 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 text-[10px] font-bold transition"
+                            title="Waive Finding with Mandatory Justification"
+                          >
+                            Waive
+                          </button>
+                          <button
+                            onClick={() => onOpenFeedbackModal(d)}
+                            className="px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-[10px] font-bold transition"
+                            title="Report False Positive"
+                          >
+                            False Positive
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Discrepancy } from '@/types/qc';
-import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Layers } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Layers, AlertTriangle } from 'lucide-react';
 
 interface SchematicViewerProps {
   svgKey?: string;
@@ -401,6 +401,20 @@ export const SchematicViewer: React.FC<SchematicViewerProps> = ({
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
       >
+        {/* Spatial Evidence Status Banner */}
+        {selectedDiscrepancyId && (() => {
+          const selected = discrepancies.find((d) => d.id === selectedDiscrepancyId);
+          if (selected && (!selected.bbox || (Number(selected.bbox.width) <= 0 && Number(selected.bbox.height) <= 0))) {
+            return (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono font-medium flex items-center gap-2 shadow-lg backdrop-blur-md">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>Visual evidence unavailable for {selected.id} (topological/net rule without discrete bounding box)</span>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
         {/* Subtle CAD Background Grid */}
         <div
           className="absolute inset-0 pointer-events-none opacity-25"
@@ -448,15 +462,32 @@ export const SchematicViewer: React.FC<SchematicViewerProps> = ({
               {/* Discrepancy Bounding Boxes & Pins */}
               {showOverlays &&
                 discrepancies.map((d) => {
+                  if (!d.bbox || (d.bbox.width <= 0 && d.bbox.height <= 0)) {
+                    return null;
+                  }
+
                   const isSelected = selectedDiscrepancyId === d.id;
                   const isHovered = hoveredDiscrepancyId === d.id;
                   const color = getSeverityColor(d.severity);
 
-                  // Convert percentage bounding box to 1000x650 SVG units
-                  const x = (d.bbox.x / 100) * 1000;
-                  const y = (d.bbox.y / 100) * 650;
-                  const w = (d.bbox.width / 100) * 1000;
-                  const h = (d.bbox.height / 100) * 650;
+                  // Support both percentage coordinates [0, 100] and canonical [0, 1000] coordinates
+                  let x = Number(d.bbox.x) || 0;
+                  let y = Number(d.bbox.y) || 0;
+                  let w = Number(d.bbox.width) || 40;
+                  let h = Number(d.bbox.height) || 40;
+
+                  if (x <= 100 && y <= 100 && w <= 100 && h <= 100 && (x > 0 || y > 0)) {
+                    // Percentage based (legacy sample)
+                    x = (x / 100) * 1000;
+                    y = (y / 100) * 650;
+                    w = Math.max(20, (w / 100) * 1000);
+                    h = Math.max(20, (h / 100) * 650);
+                  } else {
+                    // Canonical [0, 1000] grid scaled to 1000x650 SVG canvas
+                    y = (y / 1000) * 650;
+                    h = Math.max(20, (h / 1000) * 650);
+                    w = Math.max(20, w);
+                  }
 
                   return (
                     <g

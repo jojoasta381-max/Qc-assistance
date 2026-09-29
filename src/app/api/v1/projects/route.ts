@@ -44,15 +44,28 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const { name, description } = body;
 
-    if (!name) {
-      return apiError('VALIDATION_ERROR', 'Project name is required.', 400);
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return apiError('VALIDATION_ERROR', 'Project name is required and cannot be empty.', 400);
+    }
+
+    const trimmedName = name.trim();
+    if (trimmedName.length > 100) {
+      return apiError('VALIDATION_ERROR', 'Project name must be 100 characters or fewer.', 400);
+    }
+
+    // Check for duplicate project name in same tenant
+    const existing = await prisma.project.findFirst({
+      where: { tenantId: tenant.id, name: trimmedName },
+    });
+    if (existing) {
+      return apiError('CONFLICT', `A project named "${trimmedName}" already exists in this organization.`, 409);
     }
 
     const project = await prisma.project.create({
       data: {
         tenantId: tenant.id,
-        name,
-        description: description || null,
+        name: trimmedName,
+        description: description ? String(description).slice(0, 500) : null,
         status: 'ACTIVE',
       },
     });

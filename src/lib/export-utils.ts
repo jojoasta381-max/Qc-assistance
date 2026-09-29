@@ -25,7 +25,7 @@ function escapeHtml(unsafe: string | number | undefined | null): string {
 export const exportQCReportToExcel = async (report: QCReport) => {
   try {
     const sheets = generate5SheetExcelData(report);
-    const filename = `${report.diagramName.replace(/[^a-zA-Z0-9_-]/g, '_')}_Certified_QC_Workbook.xlsx`;
+    const filename = `${report.diagramName.replace(/[^a-zA-Z0-9_-]/g, '_')}_QC_Workbook.xlsx`;
 
     await (writeXlsxFile(sheets as any) as any).toFile(filename);
   } catch (err) {
@@ -63,9 +63,9 @@ export const fallbackExportToCSV = (report: QCReport) => {
 };
 
 /**
- * Phase 9: Certified Engineering Quality Certificate & Printable PDF Exporter
- * Generates an official AS9100 / ISO 9001 certified engineering audit package
- * with cryptographic SHA-256 seal, Spandsons letterhead, and digital Lead PE signature.
+ * Engineering Quality Review Report & Printable PDF Exporter
+ * Generates an engineering review report with cryptographic SHA-256 seal
+ * and verification sign-offs.
  */
 export const exportQCReportToPrintablePDF = (report: QCReport) => {
   const printWindow = window.open('', '_blank');
@@ -113,7 +113,7 @@ export const exportQCReportToPrintablePDF = (report: QCReport) => {
     <!DOCTYPE html>
     <html>
       <head>
-        <title>CERTIFIED QUALITY AUDIT REPORT - ${safeDiagramName}</title>
+        <title>ENGINEERING QUALITY REVIEW REPORT - ${safeDiagramName}</title>
         <meta charset="utf-8" />
         <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
         <style>
@@ -336,8 +336,8 @@ export const exportQCReportToPrintablePDF = (report: QCReport) => {
           </div>
           <div class="stat-box">
             <div class="stat-label">Audit Verdict</div>
-            <div class="stat-val" style="color: ${isPass ? '#166534' : '#dc2626'}; font-size: 16px; line-height: 28px;">
-              ${isPass ? 'APPROVED' : 'ACTION REQ.'}
+            <div class="stat-val" style="color: ${isPass ? '#166534' : '#dc2626'}; font-size: 14px; line-height: 24px;">
+              ${isPass ? 'REVIEW COMPLETED (NO CRITICAL ISSUES)' : 'ACTION REQ.'}
             </div>
           </div>
         </div>
@@ -366,7 +366,7 @@ export const exportQCReportToPrintablePDF = (report: QCReport) => {
 
         <!-- Cryptographic Seal -->
         <div class="seal-box">
-          <strong>CRYPTOGRAPHIC AS9100 / ISO 9001 TRACEABILITY SEAL:</strong><br/>
+          <strong>CRYPTOGRAPHIC PROVENANCE &amp; TRACEABILITY SEAL:</strong><br/>
           Fingerprint: ${escapeHtml(cert.sha256Fingerprint)}<br/>
           Tamper-Proof Verification URI: ${escapeHtml(cert.verificationUrl)}
         </div>

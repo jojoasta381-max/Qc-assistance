@@ -1,5 +1,5 @@
 /**
- * Pure TypeScript SHA-256 implementation (FIPS 180-4 compliant).
+ * Pure TypeScript SHA-256 implementation.
  * Runs universally in Node.js, Web Workers, and Browser environments without native/Node module dependencies.
  */
 

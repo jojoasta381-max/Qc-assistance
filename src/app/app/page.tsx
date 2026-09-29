@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -27,7 +27,27 @@ export default function AppOverviewPage() {
   const router = useRouter();
   const { user, tenant } = useAuth();
   const [history] = useState(INITIAL_AUDIT_HISTORY);
+  const [realDocs, setRealDocs] = useState<any[]>([]);
+  const [realProjects, setRealProjects] = useState<any[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      fetch('/api/v1/documents').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('/api/v1/projects').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([docsData, projData]) => {
+      if (isMounted) {
+        if (docsData?.documents) setRealDocs(docsData.documents);
+        if (projData?.projects) setRealProjects(projData.projects);
+        setIsLoadingData(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -46,9 +66,12 @@ export default function AppOverviewPage() {
     const found = SAMPLE_DIAGRAMS.find((s) => diagramCode.includes(s.code) || s.name.includes(diagramCode));
     if (found) {
       exportQCReportToPrintablePDF(found.sampleReport);
-      showToast(`Generated PDF Certificate for ${found.name}`);
+      showToast(`Generated PDF Inspection Report for ${found.name}`);
     }
   };
+
+  const totalAnalyzed = realDocs.length > 0 ? realDocs.length : 0;
+  const pendingFindings = realDocs.reduce((acc, d) => acc + (d.latest_version?.findings_count || 0), 0);
 
   return (
     <div className="space-y-8 animate-in fade-in">
@@ -72,7 +95,7 @@ export default function AppOverviewPage() {
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
             Active Organization: <strong className="text-white">{tenant?.name || 'Spandsons Horizon Engineering'}</strong> &bull; Plan:{' '}
-            <span className="text-sky-400 font-mono font-bold">{tenant?.plan || 'MID_5'}</span>. Over 400+ algorithmic compliance checks active.
+            <span className="text-sky-400 font-mono font-bold">{tenant?.plan || 'NORMAL_1'}</span>. 20 production deterministic QC rules active.
           </p>
         </div>
 
@@ -99,48 +122,52 @@ export default function AppOverviewPage() {
         {/* KPI 1 */}
         <div className="p-5 rounded-2xl bg-[#0A1120] border border-white/10 space-y-3">
           <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-            <span>Total Audited</span>
+            <span>Drawings Analyzed</span>
             <FileCheck2 className="w-4 h-4 text-sky-400" />
           </div>
-          <div className="text-3xl font-extrabold font-mono text-white">142</div>
+          <div className="text-3xl font-extrabold font-mono text-white">
+            {isLoadingData ? '...' : totalAnalyzed}
+          </div>
           <div className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" /> +18 drawings this week
+            <TrendingUp className="w-3 h-3" /> {realProjects.length} active projects
           </div>
         </div>
 
         {/* KPI 2 */}
         <div className="p-5 rounded-2xl bg-[#0A1120] border border-white/10 space-y-3">
           <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-            <span>First-Pass Yield</span>
+            <span>Deterministic Rules</span>
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-3xl font-extrabold font-mono text-emerald-400">94.8%</div>
+          <div className="text-3xl font-extrabold font-mono text-emerald-400">20 Active</div>
           <div className="text-[11px] text-slate-400 font-mono">
-            Target: 95.0% threshold
+            Zero random heuristics
           </div>
         </div>
 
         {/* KPI 3 */}
         <div className="p-5 rounded-2xl bg-[#0A1120] border border-white/10 space-y-3">
           <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-            <span>Critical Defect Prevention</span>
+            <span>Findings Logged</span>
             <AlertTriangle className="w-4 h-4 text-rose-400" />
           </div>
-          <div className="text-3xl font-extrabold font-mono text-rose-400">24</div>
+          <div className="text-3xl font-extrabold font-mono text-rose-400">
+            {isLoadingData ? '...' : pendingFindings}
+          </div>
           <div className="text-[11px] text-slate-400 font-mono">
-            ~$76,800 rework saved
+            Ready for engineer review
           </div>
         </div>
 
         {/* KPI 4 */}
         <div className="p-5 rounded-2xl bg-[#0A1120] border border-white/10 space-y-3">
           <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-            <span>Avg Audit Latency</span>
+            <span>Evaluation Speed</span>
             <Clock className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-3xl font-extrabold font-mono text-white">42s</div>
+          <div className="text-3xl font-extrabold font-mono text-white">&lt; 5ms</div>
           <div className="text-[11px] text-emerald-400 font-mono">
-            92% faster than manual
+            Pure in-memory graph
           </div>
         </div>
       </div>

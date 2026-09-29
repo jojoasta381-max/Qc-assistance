@@ -22,7 +22,13 @@ export async function POST(
           orderBy: { version: 'desc' },
           take: 1,
           include: {
-            findings: true,
+            findings: {
+              include: { rule: true, reviews: { orderBy: { createdAt: 'desc' }, take: 1 } },
+            },
+            extractionArtifacts: {
+              where: { artifactType: 'ELECTRICAL_GRAPH' },
+              take: 1,
+            },
           },
         },
       },
@@ -33,8 +39,32 @@ export async function POST(
     }
 
     const version = document.versions[0];
+    const graphArtifact = version?.extractionArtifacts[0];
+    const sourceSha256 = document.sourceSha256 || document.checksum || 'sha256:unknown';
+    const graphSha256 = graphArtifact?.sha256 || 'sha256:unknown';
+
+    // Compute canonical SHA-256 report integrity seal over complete provenance
+    const canonicalPayload = JSON.stringify({
+      tenantId: tenant.id,
+      documentId: document.id,
+      filename: document.filename,
+      version: version?.version || 1,
+      sourceSha256,
+      graphSha256,
+      ruleSetVersion: '1.0.0',
+      findingsCount: version?.findings.length || 0,
+      findings: (version?.findings || []).map((f) => ({
+        id: f.id,
+        ruleCode: f.rule?.code,
+        severity: f.severity,
+        status: f.status,
+        latestReview: f.reviews[0]?.decision || null,
+      })),
+    });
+    const reportSha256 = crypto.createHash('sha256').update(canonicalPayload).digest('hex');
+
     const reportId = `rep_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
-    const pdfKey = `reports/${tenant.id}/${reportId}_certificate.pdf`;
+    const pdfKey = `reports/${tenant.id}/${reportId}_inspection_report.pdf`;
     const xlsxKey = `reports/${tenant.id}/${reportId}_netlist_bom.xlsx`;
 
     const report = await prisma.report.create({
@@ -55,7 +85,13 @@ export async function POST(
       action: 'REPORT_GENERATED',
       entityType: 'REPORT',
       entityId: report.id,
-      metadata: { documentId: document.id, findingsCount: version?.findings.length || 0 },
+      metadata: {
+        documentId: document.id,
+        findingsCount: version?.findings.length || 0,
+        sourceSha256,
+        graphSha256,
+        reportSha256,
+      },
     });
 
     return apiSuccess({
@@ -63,8 +99,12 @@ export async function POST(
         id: report.id,
         document_id: document.id,
         version: report.reportVersion,
+        source_sha256: sourceSha256,
+        graph_sha256: graphSha256,
+        report_sha256: `sha256:${reportSha256}`,
         pdf_download_url: `/api/v1/reports/${report.id}/download?format=pdf`,
         xlsx_download_url: `/api/v1/reports/${report.id}/download?format=xlsx`,
+        csv_download_url: `/api/v1/reports/${report.id}/download?format=csv`,
         findings_included: version?.findings.length || 0,
         created_at: report.createdAt,
       },

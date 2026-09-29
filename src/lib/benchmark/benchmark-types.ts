@@ -25,6 +25,8 @@ export type BenchmarkCategory =
 
 export type BenchmarkDocumentStatus = 'ANNOTATED' | 'NOT_TESTED' | 'INSUFFICIENT_DATA';
 
+export const REAL_BENCHMARK_STATUS: BenchmarkDocumentStatus = 'INSUFFICIENT_DATA';
+
 export interface BenchmarkDocumentManifestEntry {
   id: string;
   filename: string;

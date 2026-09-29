@@ -53,7 +53,7 @@ SpanQC is an enterprise-grade automated Quality Control platform for electrical 
 ### Phase 1: Product Truthfulness & Reality-Based UI
 - Replaced synthetic claims, fake customer logos, and hardcoded certificates.
 - Updated pricing to match INR Razorpay models (Starter: ₹4,999/mo, Professional: ₹14,999/mo, Enterprise: Custom).
-- Truthful report integrity via FIPS-compliant SHA-256 fingerprints.
+- Truthful report integrity via SHA-256 cryptographic fingerprints.
 
 ### Phase 2: Security & Tenant Isolation
 - Cryptographic session cookies & JWT verification.

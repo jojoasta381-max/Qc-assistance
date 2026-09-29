@@ -17,11 +17,35 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const { decision, comment } = body;
 
-    const validDecisions = ['CONFIRMED', 'REJECTED', 'MODIFIED', 'NEEDS_MORE_EVIDENCE'];
-    if (!decision || !validDecisions.includes(decision)) {
+    // Support both canonical and human review action verbs
+    const decisionMapping: Record<string, string> = {
+      ACCEPT: 'CONFIRMED',
+      CONFIRMED: 'CONFIRMED',
+      REJECT: 'REJECTED',
+      REJECTED: 'REJECTED',
+      FALSE_POSITIVE: 'FALSE_POSITIVE',
+      WAIVED: 'WAIVED',
+      MODIFIED: 'MODIFIED',
+      NEEDS_MORE_EVIDENCE: 'NEEDS_MORE_EVIDENCE',
+    };
+
+    const normalizedDecision = decisionMapping[String(decision || '').toUpperCase()];
+    if (!normalizedDecision) {
       return apiError(
         'INVALID_DECISION',
-        `Decision must be one of: ${validDecisions.join(', ')}`,
+        `Decision must be one of: ACCEPT, REJECT, FALSE_POSITIVE, WAIVED, CONFIRMED, REJECTED, MODIFIED, NEEDS_MORE_EVIDENCE`,
+        400
+      );
+    }
+
+    // Require non-empty engineering rationale for FALSE_POSITIVE and WAIVED
+    if (
+      (normalizedDecision === 'FALSE_POSITIVE' || normalizedDecision === 'WAIVED') &&
+      (!comment || typeof comment !== 'string' || !comment.trim())
+    ) {
+      return apiError(
+        'REASON_REQUIRED',
+        `An explicit engineering reason or comment is required when marking a finding as ${normalizedDecision}.`,
         400
       );
     }
@@ -39,10 +63,10 @@ export async function POST(
     });
 
     if (!finding) {
-      return apiError('FINDING_NOT_FOUND', `Finding "${id}" not found.`, 404);
+      return apiError('FINDING_NOT_FOUND', `Finding "${id}" not found in current organization.`, 404);
     }
 
-    // Reviewer is strictly the authenticated user
+    const previousStatus = finding.status;
     const reviewerId = user.id;
 
     // Transactionally create review and update finding status
@@ -51,24 +75,31 @@ export async function POST(
         data: {
           findingId: finding.id,
           reviewerId,
-          decision,
-          comment: comment || null,
+          decision: normalizedDecision,
+          comment: comment ? comment.trim() : null,
         },
       }),
       prisma.finding.update({
         where: { id: finding.id },
-        data: { status: decision },
+        data: { status: normalizedDecision },
       }),
     ]);
 
-    // Record audit event
+    // Record immutable audit event
     await recordAuditEvent({
       tenantId: tenant.id,
       actorId: user.id,
       action: 'FINDING_REVIEWED',
       entityType: 'FINDING',
       entityId: finding.id,
-      metadata: { decision, comment },
+      metadata: {
+        previousStatus,
+        newStatus: normalizedDecision,
+        decision: normalizedDecision,
+        comment: comment ? comment.trim() : null,
+        reviewerName: user.name,
+        reviewerEmail: user.email,
+      },
     });
 
     return apiSuccess({

@@ -7,7 +7,13 @@ export type StandardPreset =
 
 export type SeverityLevel = 'CRITICAL' | 'MAJOR' | 'MINOR';
 
-export type DiscrepancyStatus = 'UNREVIEWED' | 'CONFIRMED' | 'FALSE_POSITIVE';
+export type DiscrepancyStatus =
+  | 'UNREVIEWED'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'FALSE_POSITIVE'
+  | 'WAIVED'
+  | 'NEEDS_MORE_EVIDENCE';
 
 export interface BoundingBox {
   x: number;      // percentage (0 - 100)

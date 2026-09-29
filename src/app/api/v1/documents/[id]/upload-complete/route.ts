@@ -53,6 +53,16 @@ export async function POST(
     const authoritativeSha256 = computeBufferSha256(buffer);
     const authoritativeSize = buffer.length;
 
+    // Optional client checksum verification (detect upload corruption)
+    const body = await req.json().catch(() => ({}));
+    if (body.client_sha256 && body.client_sha256 !== authoritativeSha256) {
+      return apiError(
+        'CHECKSUM_MISMATCH',
+        `Client provided SHA-256 "${body.client_sha256}" does not match authoritative stored object SHA-256 "${authoritativeSha256}".`,
+        400
+      );
+    }
+
     // 4. Validate magic bytes
     const detected = detectMagicBytes(buffer);
     if (detected.type === 'UNKNOWN') {

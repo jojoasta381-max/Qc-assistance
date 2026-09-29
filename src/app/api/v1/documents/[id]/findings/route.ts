@@ -39,7 +39,12 @@ export async function GET(
       },
       include: {
         rule: true,
-        reviews: { orderBy: { createdAt: 'desc' } },
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            reviewer: { select: { id: true, name: true, email: true } },
+          },
+        },
       },
       orderBy: { severity: 'asc' },
     });
@@ -62,6 +67,15 @@ export async function GET(
             }
           : null,
         reviews_count: f.reviews.length,
+        latest_review: f.reviews[0]
+          ? {
+              id: f.reviews[0].id,
+              decision: f.reviews[0].decision,
+              comment: f.reviews[0].comment,
+              reviewer_name: f.reviews[0].reviewer?.name || 'Engineer',
+              reviewed_at: f.reviews[0].createdAt,
+            }
+          : null,
         created_at: f.createdAt,
       })),
     });
