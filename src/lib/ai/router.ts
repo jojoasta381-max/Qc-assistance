@@ -10,6 +10,8 @@ import { MockAIProvider } from './providers/mock-provider';
 import { OllamaProvider } from './providers/ollama-provider';
 import { prisma } from '@/lib/prisma';
 
+import { isProduction } from '@/lib/config/app-mode';
+
 export interface RouteInspectionOptions extends AIVisionOptions {
   tenantId?: string;
   documentVersionId?: string;
@@ -28,11 +30,14 @@ export class AIProviderRouter {
   }
 
   public getProvider(type: AIProviderType): AIProvider {
+    if (isProduction() && type === 'mock') {
+      throw new Error('[AI Router] Mock AI Provider is disabled in PRODUCTION mode.');
+    }
     return this.providers.get(type) || this.mockProvider;
   }
 
   /**
-   * Routes vision inspection to primary provider with automatic resilient fallback
+   * Routes vision inspection to primary provider with fail-closed behavior in production
    */
   public async routeVisionInspection(
     prompt: string,
@@ -40,12 +45,23 @@ export class AIProviderRouter {
     options?: RouteInspectionOptions
   ): Promise<AIVisionResult & { aiRunId?: string; fallbackUsed: boolean }> {
     const preferred = options?.preferredProvider || (process.env.DEFAULT_AI_PROVIDER as AIProviderType) || 'ollama';
-    let activeProvider = this.providers.get(preferred) || this.mockProvider;
+    let activeProvider = this.providers.get(preferred);
+
+    if (!activeProvider) {
+      if (isProduction()) {
+        throw new Error(`[AI Router] Configured provider '${preferred}' is not registered and mock fallback is disabled in PRODUCTION mode.`);
+      }
+      activeProvider = this.mockProvider;
+    }
+
     let fallbackUsed = false;
 
     // Check availability of preferred provider
     const isPreferredAvailable = await activeProvider.isAvailable().catch(() => false);
-    if (!isPreferredAvailable && preferred !== 'mock') {
+    if (!isPreferredAvailable) {
+      if (isProduction()) {
+        throw new Error(`[AI Router] Production AI Provider '${activeProvider.name}' is unavailable. Analysis failed closed without mock generation.`);
+      }
       activeProvider = this.mockProvider;
       fallbackUsed = true;
     }
@@ -54,7 +70,10 @@ export class AIProviderRouter {
     try {
       result = await activeProvider.analyzeVision(prompt, imageBase64OrUrl, options);
     } catch (err) {
-      console.warn(`[AI Router] ${activeProvider.name} failed, activating fallback:`, err);
+      if (isProduction()) {
+        throw new Error(`[AI Router] ${activeProvider.name} failed during vision analysis: ${err instanceof Error ? err.message : String(err)}. Mock fallback is disabled in PRODUCTION mode.`);
+      }
+      console.warn(`[AI Router] ${activeProvider.name} failed, activating fallback (non-production mode):`, err);
       activeProvider = this.mockProvider;
       fallbackUsed = true;
       result = await activeProvider.analyzeVision(prompt, imageBase64OrUrl, options);
@@ -104,8 +123,14 @@ export class AIProviderRouter {
       if (await provider.isAvailable()) {
         return await provider.complete(prompt, options);
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      if (isProduction()) {
+        throw new Error(`[AI Router] Production completion provider '${provider.name}' failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    if (isProduction()) {
+      throw new Error(`[AI Router] Completion provider '${provider.name}' is unavailable and mock fallback is disabled in PRODUCTION mode.`);
     }
 
     return await this.mockProvider.complete(prompt, options);

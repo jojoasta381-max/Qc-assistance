@@ -52,8 +52,14 @@ declare global {
 }
 
 function generateSandboxPaymentId(): string {
-  return `pay_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+  const array = new Uint32Array(1);
+  if (typeof window !== 'undefined' && window.crypto) {
+    window.crypto.getRandomValues(array);
+    return `pay_${Date.now().toString(36)}_${array[0].toString(36)}`;
+  }
+  return `pay_${Date.now().toString(36)}_sbx1`;
 }
+
 
 export const PricingView: React.FC<PricingViewProps> = ({
   quotaUsed,
@@ -217,31 +223,20 @@ export const PricingView: React.FC<PricingViewProps> = ({
     setIsProcessingCheckout(true);
 
     try {
-      // Simulate Razorpay Webhook Event to trigger server-authoritative entitlement provisioning
+      // In client sandbox demonstration, call the payment callback endpoint
       const fakePaymentId = generateSandboxPaymentId();
-      const webhookPayload = {
-        event: 'payment.captured',
-        entity: {
-          id: fakePaymentId,
-          order_id: activeCheckout.order_id,
-          amount: activeCheckout.amount_minor,
-          status: 'captured',
-          method: selectedMethod.toLowerCase(),
-        },
-      };
-
-      // Call webhook endpoint with dev test bypass
-      await fetch('/api/v1/webhooks/razorpay', {
+      await fetch('/api/v1/billing/razorpay/callback', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-razorpay-signature': 'dev_test_simulation',
-          'x-test-bypass': 'true',
-        },
-        body: JSON.stringify(webhookPayload),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          razorpay_order_id: activeCheckout.order_id,
+          razorpay_payment_id: fakePaymentId,
+          razorpay_signature: 'sandbox_client_verification',
+        }),
       }).catch(() => {});
 
       completePaymentLocally();
+
     } catch (err: any) {
       setCheckoutError(err.message || 'Payment simulation failed');
     } finally {

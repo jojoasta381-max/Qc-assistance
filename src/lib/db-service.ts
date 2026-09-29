@@ -1,127 +1,105 @@
 import { prisma } from './prisma';
 import { SAMPLE_DIAGRAMS } from '@/data/samples';
+import { isProduction } from './config/app-mode';
 
 // Default Multi-Tenant Seed Helper
 export async function ensureDefaultTenantData() {
-  // 1. Seed Spandsons Horizon Engineering
-  try {
-    const spandsons = await prisma.tenant.upsert({
-      where: { slug: 'spandsons' },
-      update: {},
-      create: {
-        name: 'Spandsons Horizon Engineering Pvt. Ltd.',
-        slug: 'spandsons',
-        plan: 'MID_5',
-        checkQuota: 100,
-        quotaUsed: 38,
-        users: {
-          create: [
-            {
-              name: 'Pravin',
-              email: 'pravin@spandsons.com',
-              phone: '+91 98765 43210',
-              role: 'LEAD_QC_INSPECTOR',
-            },
-            {
-              name: 'Gogulnath',
-              email: 'gogulnath@spandsons.com',
-              phone: '+91 98765 43211',
-              role: 'HARNESS_ENGINEER',
-            },
-          ],
-        },
-      },
-    });
-
-    const diagramCount = await prisma.diagram.count({ where: { tenantId: spandsons.id } });
-    if (diagramCount === 0) {
-      for (const sample of SAMPLE_DIAGRAMS) {
-        await prisma.diagram.create({
-          data: {
-            title: sample.name,
-            standard: sample.standard,
-            category: sample.category,
-            svgData: sample.svgKey,
-            tenantId: spandsons.id,
+  // 1. Seed Demo Tenant ONLY in DEMO / TEST modes, never in PRODUCTION
+  if (!isProduction()) {
+    try {
+      const spandsons = await prisma.tenant.upsert({
+        where: { slug: 'spandsons' },
+        update: {},
+        create: {
+          name: 'Spandsons Horizon Engineering Pvt. Ltd.',
+          slug: 'spandsons',
+          plan: 'MID_5',
+          checkQuota: 100,
+          quotaUsed: 38,
+          users: {
+            create: [
+              {
+                name: 'Pravin',
+                email: 'pravin@spandsons.com',
+                phone: '+91 98765 43210',
+                role: 'LEAD_QC_INSPECTOR',
+              },
+              {
+                name: 'Gogulnath',
+                email: 'gogulnath@spandsons.com',
+                phone: '+91 98765 43211',
+                role: 'HARNESS_ENGINEER',
+              },
+            ],
           },
-        });
-      }
-    }
-  } catch (_err) {
-    // Ignore if already seeded
-  }
-
-  // 2. Seed Tata AutoComp Demo Tenant
-  try {
-    await prisma.tenant.upsert({
-      where: { slug: 'tata-autocomp' },
-      update: {},
-      create: {
-        name: 'Tata AutoComp Systems (Wire Harness Division)',
-        slug: 'tata-autocomp',
-        plan: 'MAX_10',
-        checkQuota: 500,
-        quotaUsed: 142,
-        users: {
-          create: [
-            {
-              name: 'Anand Kumar',
-              email: 'anand.k@tataautocomp.com',
-              phone: '+91 98111 22334',
-              role: 'PLANT_QUALITY_HEAD',
-            },
-          ],
         },
-      },
-    });
-  } catch (_err) {
-    // Ignore if already seeded
+      });
+
+      const diagramCount = await prisma.diagram.count({ where: { tenantId: spandsons.id } });
+      if (diagramCount === 0) {
+        for (const sample of SAMPLE_DIAGRAMS) {
+          await prisma.diagram.create({
+            data: {
+              title: sample.name,
+              standard: sample.standard,
+              category: sample.category,
+              svgData: sample.svgKey,
+              tenantId: spandsons.id,
+            },
+          });
+        }
+      }
+    } catch (_err) {
+      // Ignore if already seeded
+    }
   }
 
-  // 3. Seed Commercial Billing Plans
+
+  // 2. Seed Commercial Billing Plans
   try {
     const plansToSeed = [
       {
-        code: 'PAY_PER_CHECK',
-        name: 'Pay-Per-Check (Single Diagram Audit)',
-        billingInterval: 'ONE_TIME',
-        priceMinor: 9900, // ₹99 in paise
-        currency: 'INR',
-        includedChecks: 1,
-        features: JSON.stringify([
-          '1 Deterministic & AI Multi-Standard Check',
-          'IPC-620 Class 3 & UL-508A Verification',
-          'Instant Bounding Box Spatial Overlay',
-          'PDF & XLSX Compliance Certificate',
-        ]),
-      },
-      {
-        code: 'PRO_MONTHLY',
-        name: 'Professional QC Team (Monthly)',
+        code: 'ENGINEERING_TEAM',
+        name: 'Engineering Team',
         billingInterval: 'MONTHLY',
-        priceMinor: 49900, // ₹499 in paise
+        priceMinor: 999900, // ₹9,999 in paise
         currency: 'INR',
-        includedChecks: 100,
+        includedChecks: 50,
         features: JSON.stringify([
-          '100 Full Diagram QC Checks / Month',
-          'Interactive Schematic CAD Editor & DRC',
-          'Multi-Tenant Role-Based Access Control',
-          'Automated Cable Schedule Netlist BOM',
-          'Priority Standard Rule Updates',
+          '50 Diagram Inspection Runs / month',
+          'IPC/WHMA-A-620 & UL 508A deterministic rules',
+          'Netlist & electrical graph extraction',
+          'Formal PDF QC review reports & 5-sheet Excel workbooks',
+          'Cryptographic SHA-256 report verification',
         ]),
       },
       {
-        code: 'PRO_ANNUAL',
-        name: 'Industrial Enterprise (Annual)',
-        billingInterval: 'ANNUAL',
-        priceMinor: 499900, // ₹4,999 in paise (save 17%)
+        code: 'ENTERPRISE_TEAM',
+        name: 'Enterprise Team',
+        billingInterval: 'MONTHLY',
+        priceMinor: 2499900, // ₹24,999 in paise
+        currency: 'INR',
+        includedChecks: 350,
+        features: JSON.stringify([
+          '350 Diagram Inspection Runs / month',
+          'Multi-engineer findings review & approval workflow',
+          'Custom plant SOP rule authoring & evaluation',
+          'Priority OCR and multimodal queue processing',
+          'Dedicated engineering support with 4-hour SLA',
+        ]),
+      },
+      {
+        code: 'INDUSTRIAL_SCALE',
+        name: 'Industrial Scale',
+        billingInterval: 'MONTHLY',
+        priceMinor: 7500000, // ₹75,000 in paise
         currency: 'INR',
         includedChecks: 1500,
         features: JSON.stringify([
-          '1,500 Diagram QC Checks / Year',
-          'All Pro Features Included',
-          'Custom Organization SOP Injection',
-          'Unlimited Historical Audit Certificate Archive',
+          '1,500+ Diagram Inspection Runs / month',
+          'Custom volume quotas & dedicated SLA guarantees',
+          'ERP / MES integration APIs & webhook ingestion',
+          'Dedicated single-tenant VPC or isolated deployment',
           'Dedicated Technical Account Manager',
         ]),
       },

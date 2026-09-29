@@ -1,9 +1,23 @@
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import { prisma } from './prisma';
+import { isProduction } from './config/app-mode';
 
 export const SESSION_COOKIE_NAME = 'qc_session_token';
-const AUTH_SECRET = process.env.AUTH_SECRET || 'qc-bot-production-master-secret-key-32-chars-minimum';
+
+/**
+ * Returns the configured auth secret. Fails closed if missing.
+ */
+export function getAuthSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error('[Security Fatal] AUTH_SECRET environment variable is not configured.');
+  }
+  if (isProduction() && secret.length < 32) {
+    throw new Error('[Security Fatal] AUTH_SECRET must be at least 32 characters in PRODUCTION mode.');
+  }
+  return secret;
+}
 
 export interface SessionPayload {
   userId: string;
@@ -12,6 +26,7 @@ export interface SessionPayload {
   role: string;
   tenantId: string;
   tenantSlug: string;
+  iat: number;
   exp: number; // UNIX timestamp in seconds
 }
 
@@ -41,13 +56,14 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 /**
  * Create a cryptographically signed HMAC SHA-256 session token
  */
-export function createSessionToken(payload: Omit<SessionPayload, 'exp'>, expiresInSeconds: number = 7 * 24 * 3600): string {
-  const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
-  const fullPayload: SessionPayload = { ...payload, exp };
+export function createSessionToken(payload: Omit<SessionPayload, 'exp' | 'iat'>, expiresInSeconds: number = 7 * 24 * 3600): string {
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now + expiresInSeconds;
+  const fullPayload: SessionPayload = { ...payload, iat: now, exp };
   
   const payloadB64 = Buffer.from(JSON.stringify(fullPayload)).toString('base64url');
   const signature = crypto
-    .createHmac('sha256', AUTH_SECRET)
+    .createHmac('sha256', getAuthSecret())
     .update(payloadB64)
     .digest('base64url');
 
@@ -64,11 +80,13 @@ export function verifySessionToken(token: string): SessionPayload | null {
 
     const [payloadB64, signature] = parts;
     const expectedSignature = crypto
-      .createHmac('sha256', AUTH_SECRET)
+      .createHmac('sha256', getAuthSecret())
       .update(payloadB64)
       .digest('base64url');
 
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSignature);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
       return null;
     }
 

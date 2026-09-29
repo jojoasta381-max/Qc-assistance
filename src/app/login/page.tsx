@@ -235,7 +235,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <span className="font-bold text-white block text-xs">Anand Kumar</span>
-                  <span className="text-[10px] text-slate-400 font-mono">Plant Quality Head (Tata AutoComp)</span>
+                  <span className="text-[10px] text-slate-400 font-mono">Plant Quality Head (Demo Team)</span>
                 </div>
               </div>
               <span className="text-[10px] text-sky-400 font-mono font-bold">1-Click &rarr;</span>

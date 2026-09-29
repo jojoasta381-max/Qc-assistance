@@ -1,11 +1,14 @@
 import { NextRequest } from 'next/server';
-import { resolveTenant } from '@/lib/tenant-resolver';
+import { requirePermission, handleAuthError } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-v1-response';
+import { recordAuditEvent } from '@/lib/audit/audit-logger';
 
 export async function GET(req: NextRequest) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'project:read');
+    const tenant = authCtx.tenant;
+
     const projects = await prisma.project.findMany({
       where: { tenantId: tenant.id },
       include: {
@@ -26,13 +29,18 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('PROJECTS_FETCH_FAILED', err.message || 'Failed to list projects', 500);
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'project:create');
+    const tenant = authCtx.tenant;
+    const user = authCtx.user;
+
     const body = await req.json().catch(() => ({}));
     const { name, description } = body;
 
@@ -49,8 +57,19 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await recordAuditEvent({
+      tenantId: tenant.id,
+      actorId: user.id,
+      action: 'PROJECT_CREATED',
+      entityType: 'PROJECT',
+      entityId: project.id,
+      metadata: { name: project.name },
+    });
+
     return apiSuccess({ project }, 201);
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('PROJECT_CREATION_FAILED', err.message || 'Failed to create project', 400);
   }
 }

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { resolveTenant } from '@/lib/tenant-resolver';
+import { requirePermission, handleAuthError } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-v1-response';
 
@@ -8,7 +8,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'report:read');
+    const tenant = authCtx.tenant;
     const { id } = await params;
 
     const report = await prisma.report.findFirst({
@@ -40,6 +41,8 @@ export async function GET(
       },
     });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('REPORT_FETCH_FAILED', err.message || 'Failed to fetch report', 500);
   }
 }

@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SpanQC Benchmark Ground-Truth Annotation Schema",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "document",
+    "expectedComponents",
+    "expectedTerminals",
+    "expectedWires",
+    "expectedNets",
+    "expectedFindings"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "document": {
+      "type": "object",
+      "required": ["id", "filename", "sourceSha256", "pageCount", "drawingType"],
+      "properties": {
+        "id": { "type": "string" },
+        "filename": { "type": "string" },
+        "sourceSha256": { "type": "string" },
+        "pageCount": { "type": "integer", "minimum": 1 },
+        "drawingType": { "type": "string", "enum": ["VECTOR_PDF", "RASTER_IMAGE", "MIXED"] }
+      }
+    },
+    "expectedComponents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "pageNumber", "type", "referenceDesignator", "boundingBox"],
+        "properties": {
+          "id": { "type": "string" },
+          "pageNumber": { "type": "integer" },
+          "type": { "type": "string" },
+          "referenceDesignator": { "type": "string" },
+          "valueRating": { "type": "string" },
+          "boundingBox": {
+            "type": "object",
+            "required": ["x", "y", "width", "height"],
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "width": { "type": "number" },
+              "height": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "expectedTerminals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "componentId", "terminalName", "position", "pageNumber"],
+        "properties": {
+          "id": { "type": "string" },
+          "componentId": { "type": "string" },
+          "terminalName": { "type": "string" },
+          "position": {
+            "type": "object",
+            "required": ["x", "y"],
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" }
+            }
+          },
+          "pageNumber": { "type": "integer" }
+        }
+      }
+    },
+    "expectedWires": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "pageNumber", "geometry", "connectedTerminalIds"],
+        "properties": {
+          "id": { "type": "string" },
+          "pageNumber": { "type": "integer" },
+          "geometry": {
+            "type": "object",
+            "required": ["start", "end"],
+            "properties": {
+              "start": { "type": "object", "required": ["x", "y"] },
+              "end": { "type": "object", "required": ["x", "y"] }
+            }
+          },
+          "connectedTerminalIds": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "expectedNets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "netType", "memberTerminalIds", "wireIds"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "netType": { "type": "string", "enum": ["POWER", "GROUND", "SIGNAL"] },
+          "memberTerminalIds": { "type": "array", "items": { "type": "string" } },
+          "wireIds": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "expectedFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ruleCode", "severity", "pageNumber", "entityIds", "description"],
+        "properties": {
+          "ruleCode": { "type": "string" },
+          "severity": { "type": "string" },
+          "pageNumber": { "type": "integer" },
+          "entityIds": { "type": "array", "items": { "type": "string" } },
+          "description": { "type": "string" }
+        }
+      }
+    }
+  }
+}

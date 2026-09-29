@@ -1,14 +1,16 @@
 import { NextRequest } from 'next/server';
-import { resolveTenant } from '@/lib/tenant-resolver';
+import { requirePermission, handleAuthError } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-v1-response';
+import { recordAuditEvent } from '@/lib/audit/audit-logger';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'finding:read');
+    const tenant = authCtx.tenant;
     const { id } = await params;
 
     const finding = await prisma.finding.findFirst({
@@ -45,6 +47,8 @@ export async function GET(
       },
     });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('FINDING_FETCH_FAILED', err.message || 'Failed to fetch finding', 500);
   }
 }
@@ -54,7 +58,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'finding:review');
+    const tenant = authCtx.tenant;
+    const user = authCtx.user;
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const { status, severity, description } = body;
@@ -73,7 +79,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.finding.update({
-      where: { id },
+      where: { id: finding.id },
       data: {
         ...(status ? { status } : {}),
         ...(severity ? { severity } : {}),
@@ -81,8 +87,19 @@ export async function PATCH(
       },
     });
 
+    await recordAuditEvent({
+      tenantId: tenant.id,
+      actorId: user.id,
+      action: 'FINDING_UPDATED',
+      entityType: 'FINDING',
+      entityId: finding.id,
+      metadata: { status, severity },
+    });
+
     return apiSuccess({ finding: updated });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('FINDING_UPDATE_FAILED', err.message || 'Failed to update finding', 400);
   }
 }

@@ -1,8 +1,9 @@
 import crypto from 'crypto';
+import { performRealPreflight } from './real-preflight';
 
 export interface PreflightResult {
   isValid: boolean;
-  fileType: 'PDF' | 'SVG' | 'PNG' | 'JPEG' | 'UNKNOWN';
+  fileType: 'PDF' | 'SVG' | 'PNG' | 'JPEG' | 'TIFF' | 'UNKNOWN';
   mimeType: string;
   sha256Hash: string;
   fileSizeBytes: number;
@@ -109,53 +110,5 @@ export async function validateAndPreflightFile(
     };
   }
 
-  let sanitizedSvg: string | undefined = undefined;
-  let pageCount = 1;
-  let dimensions = { width: 1920, height: 1080, dpi: 300 };
-
-  // 4. Type-specific processing
-  if (detectedType === 'SVG') {
-    const rawSvgStr = fileBuffer.toString('utf8');
-    sanitizedSvg = sanitizeSvgContent(rawSvgStr);
-
-    // Extract viewBox or width/height if present
-    const viewBoxMatch = rawSvgStr.match(/viewBox\s*=\s*["']\s*([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s*["']/i);
-    if (viewBoxMatch) {
-      dimensions.width = Math.round(parseFloat(viewBoxMatch[3]));
-      dimensions.height = Math.round(parseFloat(viewBoxMatch[4]));
-    }
-  } else if (detectedType === 'PDF') {
-    // Basic PDF page counter via regex searching /Type\s*/Page\b
-    const pdfStr = fileBuffer.toString('binary');
-    const pageMatches = pdfStr.match(/\/Type\s*\/Page\b/g);
-    pageCount = pageMatches ? Math.max(1, pageMatches.length) : 1;
-
-    // Check if filename indicates a multi-page test package (e.g. WH-402 24 pages)
-    if (declaredFileName.toLowerCase().includes('wh-402')) {
-      pageCount = 24;
-      dimensions = { width: 2480, height: 1754, dpi: 300 }; // A4/A3 300 DPI
-    } else if (declaredFileName.toLowerCase().includes('mcc-vfd')) {
-      pageCount = 12;
-      dimensions = { width: 3300, height: 2550, dpi: 300 }; // ANSI B 11x17
-    } else if (declaredFileName.toLowerCase().includes('tb-200')) {
-      pageCount = 8;
-      dimensions = { width: 2480, height: 1754, dpi: 300 };
-    }
-  }
-
-  if (fileSizeBytes < 1024) {
-    warnings.push('File is unusually small (< 1KB). Verify drawing contains full vector traces.');
-  }
-
-  return {
-    isValid: true,
-    fileType: detectedType,
-    mimeType: detectedMime,
-    sha256Hash,
-    fileSizeBytes,
-    sanitizedSvg,
-    pageCount,
-    dimensions,
-    warnings,
-  };
+  return performRealPreflight(fileBuffer, declaredFileName);
 }

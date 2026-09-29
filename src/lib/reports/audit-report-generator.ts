@@ -1,13 +1,14 @@
 import { QCReport } from '@/types/qc';
 import { STANDARDS_RULE_REGISTRY } from '@/lib/rules/standards-registry';
+import { computeSha256 } from '@/lib/security/sha256';
 
-export interface AuditCertificate {
-  certificateId: string;
+export interface QCReviewReportMetadata {
+  certificateId: string; // Retained for interface compatibility
   reportId: string;
   diagramName: string;
   standard: string;
   issuedAt: string;
-  overallDisposition: 'CERTIFIED_PASS' | 'NON_CONFORMANCE_REJECT';
+  overallDisposition: 'ACCEPTED_REVIEW' | 'FINDINGS_FLAGGED' | 'CERTIFIED_PASS' | 'NON_CONFORMANCE_REJECT';
   qualityHealthScore: number;
   sha256Fingerprint: string;
   leadAuditor: string;
@@ -16,28 +17,52 @@ export interface AuditCertificate {
   verificationUrl: string;
 }
 
-/**
- * Generate deterministic SHA-256 cryptographic checksum for the report
- */
-export function generateReportChecksum(report: QCReport): string {
-  const content = `${report.id}|${report.diagramName}|${report.standard}|${report.qualityScore}|${report.timestamp}|${report.discrepancies.length}`;
-  let hash = 0;
-  for (let i = 0; i < content.length; i++) {
-    const char = content.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  const hexPart = Math.abs(hash).toString(16).padStart(8, '0');
-  return `sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852${hexPart}`;
+export type AuditCertificate = QCReviewReportMetadata;
+
+export interface ReportGenerationContext {
+  leadAuditor?: string;
+  approverAuthority?: string;
+  organization?: string;
+  baseUrl?: string;
 }
 
 /**
- * Builds the official AuditCertificate metadata
+ * Generate authentic SHA-256 cryptographic checksum for the canonical report content
  */
-export function buildAuditCertificate(report: QCReport): AuditCertificate {
+export function generateReportChecksum(report: QCReport): string {
+  const canonicalPayload = JSON.stringify({
+    id: report.id,
+    diagramName: report.diagramName,
+    standard: report.standard,
+    qualityScore: report.qualityScore,
+    timestamp: report.timestamp,
+    summary: report.summary,
+    discrepancies: (report.discrepancies || []).map((d) => ({
+      id: d.id,
+      title: d.title,
+      severity: d.severity,
+      standardRef: d.standardRef,
+      componentRef: d.componentRef,
+      bbox: d.bbox,
+    })),
+  });
+
+  const digest = computeSha256(canonicalPayload);
+  return `sha256:${digest}`;
+}
+
+/**
+ * Builds the authoritative QCReviewReport metadata
+ */
+export function buildAuditCertificate(
+  report: QCReport,
+  context?: ReportGenerationContext
+): QCReviewReportMetadata {
   const isPass = report.overallResult === 'PASS';
-  const certId = `CERT-QC-${report.id.replace('QC-', '')}-SPN`;
+  const reportCode = report.id.replace('QC-', '');
+  const certId = `REV-QC-${reportCode}`;
   const checksum = generateReportChecksum(report);
+  const baseUrl = context?.baseUrl || process.env.NEXT_PUBLIC_APP_URL || '';
 
   return {
     certificateId: certId,
@@ -45,27 +70,27 @@ export function buildAuditCertificate(report: QCReport): AuditCertificate {
     diagramName: report.diagramName,
     standard: report.standard,
     issuedAt: report.timestamp,
-    overallDisposition: isPass ? 'CERTIFIED_PASS' : 'NON_CONFORMANCE_REJECT',
+    overallDisposition: isPass ? 'ACCEPTED_REVIEW' : 'FINDINGS_FLAGGED',
     qualityHealthScore: report.qualityScore,
     sha256Fingerprint: checksum,
-    leadAuditor: 'Pravin R., Senior Quality Architect',
-    approverAuthority: 'Gogulnath S., Director of Engineering QA',
-    organization: 'Spandsons Horizon Engineering Pvt. Ltd.',
-    verificationUrl: `https://qc.spandsons.com/verify/${certId}`,
+    leadAuditor: context?.leadAuditor || 'Engineering Quality Reviewer',
+    approverAuthority: context?.approverAuthority || 'Lead Verification Engineer',
+    organization: context?.organization || 'Engineering Review Team',
+    verificationUrl: baseUrl ? `${baseUrl}/verify/${report.id}` : `/verify/${report.id}`,
   };
 }
 
 /**
  * Build 5-Sheet Excel Workbook Data Structure
  */
-export function generate5SheetExcelData(report: QCReport) {
-  const cert = buildAuditCertificate(report);
+export function generate5SheetExcelData(report: QCReport, context?: ReportGenerationContext) {
+  const cert = buildAuditCertificate(report, context);
 
   // SHEET 1: EXECUTIVE SUMMARY
   const sheet1Data: any[] = [
-    [{ value: 'SPANDSONS HORIZON ENGINEERING PVT. LTD.', fontWeight: 'bold', fontSize: 14, color: '#0A2540' }],
-    [{ value: 'CERTIFIED ENGINEERING QUALITY AUDIT REPORT', fontWeight: 'bold', fontSize: 12, color: '#0284C7' }],
-    [{ value: `Certificate ID: ${cert.certificateId}` }, { value: `Generated: ${new Date(report.timestamp).toLocaleString()}` }],
+    [{ value: cert.organization.toUpperCase(), fontWeight: 'bold', fontSize: 14, color: '#0A2540' }],
+    [{ value: 'ENGINEERING QUALITY REVIEW REPORT', fontWeight: 'bold', fontSize: 12, color: '#0284C7' }],
+    [{ value: `Review ID: ${cert.certificateId}` }, { value: `Generated: ${new Date(report.timestamp).toLocaleString()}` }],
     [{ value: `Cryptographic SHA-256 Seal: ${cert.sha256Fingerprint}` }],
     [{ value: '' }],
     [{ value: 'AUDIT METADATA', fontWeight: 'bold', backgroundColor: '#0F172A', color: '#FFFFFF' }, { value: 'VALUE', fontWeight: 'bold', backgroundColor: '#0F172A', color: '#FFFFFF' }],

@@ -58,7 +58,7 @@ test.describe.serial('API v1 Contract & Razorpay Billing Architecture', () => {
   });
 
   test('POST /api/v1/webhooks/razorpay processes signed webhook and provisions quota', async ({ request }) => {
-    const webhookSecret = 'dev_razorpay_webhook_secret_456';
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || 'test_webhook_secret';
     const eventId = `evt_${Date.now()}`;
     const paymentId = `pay_${Date.now()}`;
 
@@ -121,7 +121,7 @@ test.describe.serial('API v1 Contract & Razorpay Billing Architecture', () => {
 
     const body = await res.json();
     expect(body.upload_session).toBeDefined();
-    expect(body.upload_session.storage_key).toContain('uploads/');
+    expect(body.upload_session.storage_key).toContain('organizations/');
     expect(body.upload_session.upload_url).toBeDefined();
   });
 
@@ -132,7 +132,7 @@ test.describe.serial('API v1 Contract & Razorpay Billing Architecture', () => {
         filename: 'WH-402_Aerospace_Harness.pdf',
         mime_type: 'application/pdf',
         size_bytes: 852000,
-        storage_key: `uploads/${createdOrgId}/wh402_clean.pdf`,
+        storage_key: `organizations/${createdOrgId}/wh402_clean.pdf`,
       },
     });
     expect(res.status()).toBe(201);
@@ -211,7 +211,7 @@ test.describe.serial('API v1 Contract & Razorpay Billing Architecture', () => {
   });
 
   test('POST /api/v1/billing/razorpay/callback validates timing-safe HMAC signature', async ({ request }) => {
-    const keySecret = 'dev_razorpay_secret_qc_bot_123';
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'test_key_secret';
     const fakePaymentId = `pay_${Date.now()}`;
     const validSignature = crypto
       .createHmac('sha256', keySecret)

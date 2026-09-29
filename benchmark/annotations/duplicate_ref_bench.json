@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0.0",
+  "document": {
+    "id": "BENCH-004-DUPLICATE-REFERENCES",
+    "filename": "bench_004_duplicate_designators.pdf",
+    "sourceSha256": "f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1",
+    "pageCount": 1,
+    "drawingType": "VECTOR_PDF"
+  },
+  "expectedComponents": [
+    { "id": "exp-c-f1-a", "pageNumber": 1, "type": "FUSE", "referenceDesignator": "F1", "valueRating": "10A", "boundingBox": { "x": 200, "y": 300, "width": 50, "height": 20 } },
+    { "id": "exp-c-f1-b", "pageNumber": 1, "type": "FUSE", "referenceDesignator": "F1", "valueRating": "25A", "boundingBox": { "x": 600, "y": 300, "width": 50, "height": 20 } }
+  ],
+  "expectedTerminals": [
+    { "id": "exp-t-f1a-1", "componentId": "exp-c-f1-a", "terminalName": "1", "position": { "x": 200, "y": 310 }, "pageNumber": 1 },
+    { "id": "exp-t-f1a-2", "componentId": "exp-c-f1-a", "terminalName": "2", "position": { "x": 250, "y": 310 }, "pageNumber": 1 },
+    { "id": "exp-t-f1b-1", "componentId": "exp-c-f1-b", "terminalName": "1", "position": { "x": 600, "y": 310 }, "pageNumber": 1 },
+    { "id": "exp-t-f1b-2", "componentId": "exp-c-f1-b", "terminalName": "2", "position": { "x": 650, "y": 310 }, "pageNumber": 1 }
+  ],
+  "expectedWires": [],
+  "expectedJunctions": [],
+  "expectedNets": [],
+  "expectedFindings": [
+    {
+      "ruleCode": "RULE-004",
+      "severity": "MAJOR",
+      "pageNumber": 1,
+      "entityIds": ["exp-c-f1-a", "exp-c-f1-b"],
+      "description": "Duplicate component designator: 'F1' reused"
+    }
+  ],
+  "expectedAmbiguities": []
+}

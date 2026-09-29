@@ -10,7 +10,7 @@ import {
   AuditRecord,
 } from '@/types/qc';
 import { SAMPLE_DIAGRAMS, INITIAL_AUDIT_HISTORY } from '@/data/samples';
-import { DEFAULT_LLM_CONFIG } from '@/lib/llm-engine';
+import { DEFAULT_LLM_CONFIG } from '@/lib/config/llm-config';
 import { useAuth } from '@/context/AuthContext';
 import { LandingPage } from '@/components/LandingPage';
 import { InspectionWizard } from '@/components/InspectionWizard';
@@ -53,22 +53,16 @@ interface TenantOrg {
 
 const AVAILABLE_TENANTS: TenantOrg[] = [
   {
-    id: 'spandsons',
-    name: 'Spandsons Horizon Engineering',
-    plan: 'MID_5 ($5/check)',
-    checksAllowed: 100,
+    id: 'engineering-demo',
+    name: 'Engineering Team Workspace',
+    plan: 'Engineering Team (50 checks/mo)',
+    checksAllowed: 50,
   },
   {
-    id: 'tata-autocomp',
-    name: 'Tata AutoComp Systems',
-    plan: 'MAX_10 ($10/check)',
-    checksAllowed: 500,
-  },
-  {
-    id: 'apex-harness',
-    name: 'Apex Harness Solutions',
-    plan: 'MID_5 ($5/check)',
-    checksAllowed: 100,
+    id: 'enterprise-demo',
+    name: 'Enterprise Harness Solutions (Sample)',
+    plan: 'Enterprise Team (350 checks/mo)',
+    checksAllowed: 350,
   },
 ];
 
@@ -137,7 +131,7 @@ export default function Home() {
   const handleCheckExecuted = () => {
     setQuotaUsed((prev) => Math.min(prev + 1, quotaLimit));
     const newRecord: AuditRecord = {
-      id: `AUD-${Math.floor(Math.random() * 8000 + 1000)}`,
+      id: `AUD-${Date.now().toString(36).toUpperCase()}`,
       diagramName: report.diagramName,
       standard: activeStandard,
       timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
@@ -145,7 +139,7 @@ export default function Home() {
       qualityScore: report.qualityScore,
       totalChecks: report.summary.executed,
       discrepanciesCount: report.discrepancies.length,
-      operator: authUser?.name || 'Pravin',
+      operator: authUser?.name || 'Quality Reviewer',
       reviewedCount: 0,
     };
     setHistory((prev) => [newRecord, ...prev]);

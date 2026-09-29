@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { DEFAULT_LLM_CONFIG } from '@/lib/llm-engine';
+import { DEFAULT_LLM_CONFIG } from '@/lib/config/llm-config';
 import { LLMConfig } from '@/types/qc';
 import {
   Settings,

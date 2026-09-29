@@ -1,14 +1,16 @@
 import { NextRequest } from 'next/server';
-import { resolveTenant } from '@/lib/tenant-resolver';
+import { requirePermission, handleAuthError } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-v1-response';
+import { recordAuditEvent } from '@/lib/audit/audit-logger';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'project:read');
+    const tenant = authCtx.tenant;
     const { id } = await params;
 
     const project = await prisma.project.findFirst({
@@ -26,6 +28,8 @@ export async function GET(
 
     return apiSuccess({ project });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('PROJECT_FETCH_FAILED', err.message || 'Failed to fetch project', 500);
   }
 }
@@ -35,7 +39,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'project:update');
+    const tenant = authCtx.tenant;
+    const user = authCtx.user;
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const { name, description, status } = body;
@@ -44,11 +50,11 @@ export async function PATCH(
       where: { id, tenantId: tenant.id },
     });
     if (!project) {
-      return apiError('PROJECT_NOT_FOUND', `Project "${id}" not found.`, 404);
+      return apiError('PROJECT_NOT_FOUND', `Project "${id}" not found in current organization.`, 404);
     }
 
     const updated = await prisma.project.update({
-      where: { id },
+      where: { id: project.id },
       data: {
         ...(name ? { name } : {}),
         ...(description !== undefined ? { description } : {}),
@@ -56,8 +62,19 @@ export async function PATCH(
       },
     });
 
+    await recordAuditEvent({
+      tenantId: tenant.id,
+      actorId: user.id,
+      action: 'PROJECT_UPDATED',
+      entityType: 'PROJECT',
+      entityId: project.id,
+      metadata: { name, status },
+    });
+
     return apiSuccess({ project: updated });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('PROJECT_UPDATE_FAILED', err.message || 'Failed to update project', 400);
   }
 }

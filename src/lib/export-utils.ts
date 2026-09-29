@@ -284,13 +284,13 @@ export const exportQCReportToPrintablePDF = (report: QCReport) => {
         <!-- Header -->
         <div class="header">
           <div>
-            <div class="company-name">SPANDSONS HORIZON ENGINEERING PVT. LTD.</div>
-            <div class="company-sub">AEROSPACE &amp; DEFENSE ELECTRICAL QUALITY CONTROL DIVISION</div>
-            <div class="cert-title">FORMAL ENGINEERING COMPLIANCE CERTIFICATE</div>
+            <div class="company-name">${escapeHtml(cert.organization)}</div>
+            <div class="company-sub">AI-ASSISTED ELECTRICAL WIRING DIAGRAM REVIEW</div>
+            <div class="cert-title">ENGINEERING QUALITY REVIEW REPORT</div>
           </div>
           <div class="badge-box">
             <div class="badge-disposition ${isPass ? 'badge-pass' : 'badge-fail'}">
-              DISPOSITION: ${isPass ? 'CERTIFIED PASS' : 'REJECT / HOLD'}
+              REVIEW: ${isPass ? 'PASS (NO CRITICAL ISSUES)' : 'FINDINGS FLAGGED'}
             </div>
             <div style="font-size: 10px; font-family: monospace; color: #64748b; margin-top: 4px;">
               ${escapeHtml(cert.certificateId)}
@@ -375,20 +375,20 @@ export const exportQCReportToPrintablePDF = (report: QCReport) => {
         <div class="sign-block">
           <div>
             <div class="signature-line"></div>
-            <strong>Lead Quality Architect:</strong> ${escapeHtml(cert.leadAuditor)}<br/>
-            <span>Professional Engineering Stamp: PE-IND-48910</span>
+            <strong>Lead Quality Reviewer:</strong> ${escapeHtml(cert.leadAuditor)}<br/>
+            <span>Reviewed &amp; Documented</span>
           </div>
           <div>
             <div class="signature-line"></div>
-            <strong>Director of Engineering QA:</strong> ${escapeHtml(cert.approverAuthority)}<br/>
-            <span>Authorized for Fabrication Release: ${safeTimestamp}</span>
+            <strong>Verification Engineer:</strong> ${escapeHtml(cert.approverAuthority)}<br/>
+            <span>Review Decision Logged: ${safeTimestamp}</span>
           </div>
         </div>
 
         <!-- Footer -->
         <div class="footer">
-          <div>CONFIDENTIAL &amp; PROPRIETARY — Spandsons Horizon Engineering Pvt. Ltd. • Quality Engineering Directorate</div>
-          <div>Form QCF-89 Rev 4.2 • Certified for AS9100D, ISO 9001:2015, and IPC/WHMA-A-620</div>
+          <div>SpanQC AI-Assisted Electrical Wiring Diagram Review System</div>
+          <div>This automated review assists engineering evaluation and does not replace qualified engineering judgment.</div>
         </div>
 
         <script>

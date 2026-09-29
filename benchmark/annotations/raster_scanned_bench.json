@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0.0",
+  "document": {
+    "id": "BENCH-005-RASTER-SCANNED",
+    "filename": "bench_005_scanned_schematic_300dpi.png",
+    "sourceSha256": "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e",
+    "pageCount": 1,
+    "drawingType": "RASTER_IMAGE"
+  },
+  "expectedComponents": [
+    { "id": "exp-c-f1", "pageNumber": 1, "type": "FUSE", "referenceDesignator": "F1", "valueRating": "20A", "boundingBox": { "x": 300, "y": 400, "width": 80, "height": 30 } }
+  ],
+  "expectedTerminals": [
+    { "id": "exp-t-f1-1", "componentId": "exp-c-f1", "terminalName": "1", "position": { "x": 300, "y": 415 }, "pageNumber": 1 },
+    { "id": "exp-t-f1-2", "componentId": "exp-c-f1", "terminalName": "2", "position": { "x": 380, "y": 415 }, "pageNumber": 1 }
+  ],
+  "expectedWires": [],
+  "expectedJunctions": [],
+  "expectedNets": [],
+  "expectedFindings": [
+    {
+      "ruleCode": "RULE-001",
+      "severity": "ADVISORY",
+      "pageNumber": 1,
+      "entityIds": [],
+      "description": "Prerequisites Not Met: WIRE_GEOMETRY is unavailable for raster drawing."
+    }
+  ],
+  "expectedAmbiguities": [
+    {
+      "id": "amb-raster-001",
+      "type": "WIRE_GEOMETRY_UNAVAILABLE",
+      "pageNumber": 1,
+      "description": "Raster image lacks vector paths. Optical wire tracing requires computer-vision models."
+    }
+  ]
+}

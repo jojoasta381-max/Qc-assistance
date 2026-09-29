@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SAMPLE_DIAGRAMS } from '@/data/samples';
 import { buildAuditCertificate } from '@/lib/reports/audit-report-generator';
+import { isProduction } from '@/lib/config/app-mode';
 
 export async function GET(
   req: NextRequest,
@@ -10,7 +11,15 @@ export async function GET(
     const { id } = await params;
     const cleanId = decodeURIComponent(id);
 
-    // Look for matching report in sample diagrams or historical audits
+    if (isProduction()) {
+      // In production, no fake sample certificate fallback
+      return NextResponse.json(
+        { error: 'Certificate verification requires authoritative verification URL.' },
+        { status: 404 }
+      );
+    }
+
+    // Look for matching report in sample diagrams
     const matchedSample = SAMPLE_DIAGRAMS.find(
       (s) =>
         s.sampleReport.id.toLowerCase() === cleanId.toLowerCase() ||
@@ -18,14 +27,17 @@ export async function GET(
         cleanId.toLowerCase().includes(s.code.toLowerCase())
     );
 
-    const report = matchedSample ? matchedSample.sampleReport : SAMPLE_DIAGRAMS[0].sampleReport;
-    const cert = buildAuditCertificate(report);
+    if (!matchedSample) {
+      return NextResponse.json({ error: 'Certificate record not found.' }, { status: 404 });
+    }
+
+    const cert = buildAuditCertificate(matchedSample.sampleReport);
 
     return NextResponse.json({
       success: true,
       verified: true,
       certificate: cert,
-      report,
+      report: matchedSample.sampleReport,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Certificate verification failed';

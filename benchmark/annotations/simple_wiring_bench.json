@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "1.0.0",
+  "document": {
+    "id": "BENCH-001-SIMPLE-WIRING",
+    "filename": "bench_001_battery_fuse_load.pdf",
+    "sourceSha256": "3e9b14f885e3a0b8d234a9ef193c7d678129e1d8820c4516aa88294cfbe01234",
+    "pageCount": 1,
+    "drawingType": "VECTOR_PDF"
+  },
+  "expectedComponents": [
+    {
+      "id": "exp-comp-pwr",
+      "pageNumber": 1,
+      "type": "POWER_SOURCE",
+      "referenceDesignator": "+12V",
+      "valueRating": "12V",
+      "boundingBox": { "x": 50, "y": 50, "width": 80, "height": 18 }
+    },
+    {
+      "id": "exp-comp-f1",
+      "pageNumber": 1,
+      "type": "FUSE",
+      "referenceDesignator": "F1",
+      "valueRating": "15A",
+      "boundingBox": { "x": 50, "y": 225, "width": 80, "height": 18 }
+    },
+    {
+      "id": "exp-comp-m1",
+      "pageNumber": 1,
+      "type": "MOTOR",
+      "referenceDesignator": "M1",
+      "boundingBox": { "x": 50, "y": 450, "width": 80, "height": 18 }
+    },
+    {
+      "id": "exp-comp-gnd",
+      "pageNumber": 1,
+      "type": "GROUND",
+      "referenceDesignator": "GND",
+      "boundingBox": { "x": 50, "y": 675, "width": 80, "height": 18 }
+    }
+  ],
+  "expectedTerminals": [
+    { "id": "exp-term-pwr", "componentId": "exp-comp-pwr", "terminalName": "+12V", "position": { "x": 58, "y": 59 }, "pageNumber": 1 },
+    { "id": "exp-term-f1-1", "componentId": "exp-comp-f1", "terminalName": "1", "position": { "x": 46, "y": 234 }, "pageNumber": 1 },
+    { "id": "exp-term-f1-2", "componentId": "exp-comp-f1", "terminalName": "2", "position": { "x": 70, "y": 234 }, "pageNumber": 1 },
+    { "id": "exp-term-m1-1", "componentId": "exp-comp-m1", "terminalName": "1", "position": { "x": 46, "y": 459 }, "pageNumber": 1 },
+    { "id": "exp-term-m1-2", "componentId": "exp-comp-m1", "terminalName": "2", "position": { "x": 70, "y": 459 }, "pageNumber": 1 },
+    { "id": "exp-term-gnd-1", "componentId": "exp-comp-gnd", "terminalName": "GND", "position": { "x": 58, "y": 684 }, "pageNumber": 1 }
+  ],
+  "expectedWires": [
+    {
+      "id": "exp-wire-1",
+      "pageNumber": 1,
+      "geometry": { "start": { "x": 58, "y": 59 }, "end": { "x": 46, "y": 234 } },
+      "connectedTerminalIds": ["exp-term-pwr", "exp-term-f1-1"]
+    },
+    {
+      "id": "exp-wire-2",
+      "pageNumber": 1,
+      "geometry": { "start": { "x": 70, "y": 234 }, "end": { "x": 46, "y": 459 } },
+      "connectedTerminalIds": ["exp-term-f1-2", "exp-term-m1-1"]
+    },
+    {
+      "id": "exp-wire-3",
+      "pageNumber": 1,
+      "geometry": { "start": { "x": 70, "y": 459 }, "end": { "x": 58, "y": 684 } },
+      "connectedTerminalIds": ["exp-term-m1-2", "exp-term-gnd-1"]
+    }
+  ],
+  "expectedJunctions": [],
+  "expectedNets": [
+    {
+      "id": "exp-net-pwr",
+      "name": "+12V",
+      "netType": "POWER",
+      "memberTerminalIds": ["exp-term-pwr", "exp-term-f1-1"],
+      "wireIds": ["exp-wire-1"],
+      "pageNumbers": [1]
+    },
+    {
+      "id": "exp-net-swpwr",
+      "name": "FUSED_NET",
+      "netType": "SIGNAL",
+      "memberTerminalIds": ["exp-term-f1-2", "exp-term-m1-1"],
+      "wireIds": ["exp-wire-2"],
+      "pageNumbers": [1]
+    },
+    {
+      "id": "exp-net-gnd",
+      "name": "GND",
+      "netType": "GROUND",
+      "memberTerminalIds": ["exp-term-m1-2", "exp-term-gnd-1"],
+      "wireIds": ["exp-wire-3"],
+      "pageNumbers": [1]
+    }
+  ],
+  "expectedFindings": [],
+  "expectedAmbiguities": []
+}

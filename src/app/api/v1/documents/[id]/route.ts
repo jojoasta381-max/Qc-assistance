@@ -1,14 +1,16 @@
 import { NextRequest } from 'next/server';
-import { resolveTenant } from '@/lib/tenant-resolver';
+import { requirePermission, handleAuthError } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-v1-response';
+import { recordAuditEvent } from '@/lib/audit/audit-logger';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'document:read');
+    const tenant = authCtx.tenant;
     const { id } = await params;
 
     const document = await prisma.document.findFirst({
@@ -34,6 +36,8 @@ export async function GET(
 
     return apiSuccess({ document });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('DOCUMENT_FETCH_FAILED', err.message || 'Failed to fetch document', 500);
   }
 }
@@ -43,7 +47,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'document:delete');
+    const tenant = authCtx.tenant;
+    const user = authCtx.user;
     const { id } = await params;
 
     const document = await prisma.document.findFirst({
@@ -54,20 +60,21 @@ export async function DELETE(
       return apiError('DOCUMENT_NOT_FOUND', `Document "${id}" was not found.`, 404);
     }
 
-    await prisma.document.delete({ where: { id } });
+    await prisma.document.delete({ where: { id: document.id } });
 
-    await prisma.auditEvent.create({
-      data: {
-        tenantId: tenant.id,
-        action: 'DOCUMENT_DELETED',
-        entityType: 'DOCUMENT',
-        entityId: id,
-        metadata: JSON.stringify({ filename: document.filename }),
-      },
+    await recordAuditEvent({
+      tenantId: tenant.id,
+      actorId: user.id,
+      action: 'DOCUMENT_DELETED',
+      entityType: 'DOCUMENT',
+      entityId: id,
+      metadata: { filename: document.filename },
     });
 
     return apiSuccess({ message: 'Document deleted successfully.', id });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('DOCUMENT_DELETE_FAILED', err.message || 'Failed to delete document', 400);
   }
 }

@@ -1,13 +1,20 @@
 import { LLMConfig, QCReport, StandardPreset, Discrepancy } from '@/types/qc';
-import { SAMPLE_DIAGRAMS, DEFAULT_VALIDATED_PROMPT } from '@/data/samples';
+import { SAMPLE_DIAGRAMS } from '@/data/samples';
+import { isProduction } from '@/lib/config/app-mode';
+import { STANDARDS_RULE_REGISTRY } from '@/lib/rules/standards-registry';
+import { DEFAULT_LLM_CONFIG } from '@/lib/config/llm-config';
 
-export const DEFAULT_LLM_CONFIG: LLMConfig = {
-  provider: 'ollama',
-  endpoint: 'http://localhost:11434',
-  modelName: 'qwen2.5-vl:3b',
-  temperature: 0.1,
-  customPrompt: DEFAULT_VALIDATED_PROMPT,
-};
+export { DEFAULT_LLM_CONFIG };
+
+function isIPv4(str: string): boolean {
+  const parts = str.split('.');
+  if (parts.length !== 4) return false;
+  return parts.every((p) => {
+    if (!/^\d{1,3}$/.test(p)) return false;
+    const n = Number(p);
+    return n >= 0 && n <= 255;
+  });
+}
 
 // Security Check: Guard against SSRF (Server-Side Request Forgery)
 export function validateLLMEndpoint(endpoint: string): { valid: boolean; reason?: string } {
@@ -16,21 +23,61 @@ export function validateLLMEndpoint(endpoint: string): { valid: boolean; reason?
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       return { valid: false, reason: 'Invalid protocol. Only http:// and https:// are permitted.' };
     }
-    const hostname = url.hostname.toLowerCase();
+    let hostname = url.hostname.toLowerCase();
+    if (hostname.startsWith('[') && hostname.endsWith(']')) {
+      hostname = hostname.slice(1, -1);
+    }
     
-    // Strictly block cloud metadata service endpoints (AWS, GCP, Azure, OpenStack)
+    // Prohibit localhost and cloud metadata
     if (
+      hostname === 'localhost' ||
+      hostname.endsWith('.localhost') ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.internal') ||
       hostname === '169.254.169.254' ||
       hostname === 'metadata.google.internal' ||
-      hostname === 'instance-data' ||
-      hostname.endsWith('.internal')
+      hostname === 'instance-data'
     ) {
-      return { valid: false, reason: 'Access to cloud instance metadata services is strictly blocked.' };
+      return { valid: false, reason: 'Access to loopback, local, or cloud metadata endpoints is strictly blocked.' };
     }
 
-    // Block non-routable / broadcast
-    if (hostname === '0.0.0.0' || hostname === '255.255.255.255') {
-      return { valid: false, reason: 'Invalid network destination.' };
+    // Decimal encoded IP (e.g. 2130706433 = 127.0.0.1, 2852039166 = 169.254.169.254)
+    if (/^\d+$/.test(hostname)) {
+      const num = parseInt(hostname, 10);
+      if (!isNaN(num) && num >= 0 && num <= 4294967295) {
+        hostname = `${(num >>> 24) & 255}.${(num >>> 16) & 255}.${(num >>> 8) & 255}.${num & 255}`;
+      }
+    }
+
+    // IPv6 loopback and private checks
+    if (hostname === '::1' || hostname === '0:0:0:0:0:0:0:1' || hostname === '::') {
+      return { valid: false, reason: 'IPv6 loopback/unspecified is strictly blocked.' };
+    }
+    if (hostname.startsWith('::ffff:')) {
+      const v4Part = hostname.substring(7);
+      if (isIPv4(v4Part)) {
+        hostname = v4Part;
+      } else {
+        return { valid: false, reason: 'IPv4-mapped IPv6 is prohibited.' };
+      }
+    }
+    if (hostname.startsWith('fc') || hostname.startsWith('fd') || /^fe[89ab]/.test(hostname)) {
+      return { valid: false, reason: 'Private or link-local IPv6 address is prohibited.' };
+    }
+
+    // Check IPv4 private and reserved ranges
+    if (isIPv4(hostname)) {
+      const parts = hostname.split('.').map((p) => parseInt(p, 10));
+      const [a, b] = parts;
+      if (a === 0 || a === 127 || (a === 169 && b === 254)) {
+        return { valid: false, reason: 'Loopback and link-local addresses are prohibited.' };
+      }
+      if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
+        return { valid: false, reason: 'RFC1918 private network addresses are prohibited.' };
+      }
+      if (a >= 224) {
+        return { valid: false, reason: 'Multicast and reserved addresses are prohibited.' };
+      }
     }
 
     return { valid: true };
@@ -39,10 +86,22 @@ export function validateLLMEndpoint(endpoint: string): { valid: boolean; reason?
   }
 }
 
+export async function validateLLMEndpointAsync(endpoint: string): Promise<{ valid: boolean; reason?: string }> {
+  const { validateSsrfEndpoint } = await import('@/lib/security/ssrf-validator');
+  const result = await validateSsrfEndpoint(endpoint);
+  return { valid: result.safe, reason: result.reason };
+}
+
+
 export async function checkOllamaStatus(endpoint: string): Promise<{ online: boolean; models: string[]; error?: string }> {
   const validation = validateLLMEndpoint(endpoint);
   if (!validation.valid) {
     return { online: false, models: [], error: `Security Warning: ${validation.reason}` };
+  }
+
+  const asyncValidation = await validateLLMEndpointAsync(endpoint);
+  if (!asyncValidation.valid) {
+    return { online: false, models: [], error: `Security Warning: ${asyncValidation.reason}` };
   }
 
   try {
@@ -72,148 +131,151 @@ export async function runAIQualityInspection(
 ): Promise<QCReport> {
   const startTime = Date.now();
 
-  // Check if imagePayload matches one of our known preloaded sample SVG keys
-  const matchedSample = SAMPLE_DIAGRAMS.find(
-    (s) => s.svgKey === imagePayload || s.id === imagePayload || s.name.toLowerCase() === diagramName.toLowerCase()
-  );
-
-  // If Ollama is selected, attempt to reach the local endpoint (if validated)
+  // In production mode, check if we have a real AI provider configured and reachable
   if (config.provider === 'ollama' && config.endpoint) {
     const endpointCheck = validateLLMEndpoint(config.endpoint);
-    if (endpointCheck.valid) {
-      try {
-        const ollamaRes = await fetch(`${config.endpoint}/api/generate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: config.modelName,
-            prompt: `${config.customPrompt}\n\nStandard to check: ${standard}\nDiagram Name: ${diagramName}\nDiagram Category: ${diagramCategory}\n\nAnalyze this schematic and return JSON with overallResult (PASS/FAIL), qualityScore, summary, and discrepancies list with coordinates.`,
-            format: 'json',
-            stream: false,
-            options: {
-              temperature: config.temperature,
-            },
-          }),
-          signal: AbortSignal.timeout(4000),
-        });
+    if (!endpointCheck.valid) {
+      throw new Error(`[AI Engine] Security validation failed for AI endpoint: ${endpointCheck.reason}`);
+    }
 
-        if (ollamaRes.ok) {
-          const ollamaData = await ollamaRes.json();
-          const parsed = JSON.parse(ollamaData.response);
-          return {
-            id: `QC-${Date.now().toString().slice(-6)}`,
-            diagramName,
-            diagramCategory,
-            standard,
-            timestamp: new Date().toISOString(),
-            overallResult: parsed.overallResult || (parsed.discrepancies?.length > 0 ? 'FAIL' : 'PASS'),
-            qualityScore: parsed.qualityScore || (parsed.overallResult === 'PASS' ? 98 : 72),
-            summary: parsed.summary || {
-              executed: 140,
-              passed: 120,
-              failed: parsed.discrepancies?.length || 5,
-              na: 15,
-              critical: parsed.discrepancies?.filter((d: Discrepancy) => d.severity === 'CRITICAL').length || 2,
-              major: parsed.discrepancies?.filter((d: Discrepancy) => d.severity === 'MAJOR').length || 2,
-              minor: parsed.discrepancies?.filter((d: Discrepancy) => d.severity === 'MINOR').length || 1,
-            },
-            discrepancies: parsed.discrepancies || [],
-            inspectedBy: `OpenSource LLM (${config.modelName})`,
-            modelUsed: `Ollama / ${config.modelName}`,
-            executionTimeMs: Date.now() - startTime,
-            diagramSvgKey: matchedSample ? matchedSample.svgKey : undefined,
-            customImageDataUri: !matchedSample ? imagePayload : undefined,
-          };
-        }
-      } catch {
-        // Ollama not reachable or timed out, gracefully fallback to high-fidelity engine below
+    try {
+      const ollamaRes = await fetch(`${config.endpoint}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: config.modelName,
+          prompt: `${config.customPrompt}\n\nStandard to check: ${standard}\nDiagram Name: ${diagramName}\nDiagram Category: ${diagramCategory}\n\nAnalyze this schematic and return JSON with overallResult (PASS/FAIL), qualityScore, summary, and discrepancies list with coordinates.`,
+          format: 'json',
+          stream: false,
+          options: {
+            temperature: config.temperature,
+          },
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (ollamaRes.ok) {
+        const ollamaData = await ollamaRes.json();
+        const parsed = JSON.parse(ollamaData.response);
+        const discrepancies: Discrepancy[] = parsed.discrepancies || [];
+        const ruleCount = STANDARDS_RULE_REGISTRY.length;
+        const failedCount = discrepancies.length;
+        const passedCount = Math.max(0, ruleCount - failedCount);
+
+        return {
+          id: `QC-${Date.now().toString().slice(-6)}`,
+          diagramName,
+          diagramCategory,
+          standard,
+          timestamp: new Date().toISOString(),
+          overallResult: parsed.overallResult || (discrepancies.length > 0 ? 'FAIL' : 'PASS'),
+          qualityScore: parsed.qualityScore ?? (failedCount === 0 ? 100 : Math.max(50, 100 - failedCount * 12)),
+          summary: {
+            executed: ruleCount,
+            passed: passedCount,
+            failed: failedCount,
+            na: 0,
+            critical: discrepancies.filter((d: Discrepancy) => d.severity === 'CRITICAL').length,
+            major: discrepancies.filter((d: Discrepancy) => d.severity === 'MAJOR').length,
+            minor: discrepancies.filter((d: Discrepancy) => d.severity === 'MINOR').length,
+          },
+          discrepancies,
+          inspectedBy: `OpenSource LLM (${config.modelName})`,
+          modelUsed: `Ollama / ${config.modelName}`,
+          executionTimeMs: Date.now() - startTime,
+          customImageDataUri: imagePayload,
+        };
+      }
+    } catch (err) {
+      if (isProduction()) {
+        throw new Error(
+          `[AI Engine] Production AI model (${config.modelName}) at ${config.endpoint} is unreachable or timed out: ${
+            err instanceof Error ? err.message : String(err)
+          }. Mock fallback is prohibited in PRODUCTION mode.`
+        );
       }
     }
   }
 
-  // High-fidelity fallback / built-in QC inspection engine
+  // In PRODUCTION mode, fail closed if live AI provider was not reachable
+  if (isProduction()) {
+    throw new Error(
+      '[AI Engine] Production AI inspection requires an active, reachable AI provider. Mock and sample fallbacks are disabled in PRODUCTION mode.'
+    );
+  }
+
+  // DEMO/TEST ONLY: Deterministic sample lookup
+  const matchedSample = SAMPLE_DIAGRAMS.find(
+    (s) => s.svgKey === imagePayload || s.id === imagePayload || s.name.toLowerCase() === diagramName.toLowerCase()
+  );
+
   if (matchedSample) {
     const reportCopy = JSON.parse(JSON.stringify(matchedSample.sampleReport)) as QCReport;
     reportCopy.id = `QC-${Date.now().toString().slice(-6)}`;
     reportCopy.timestamp = new Date().toISOString();
     reportCopy.standard = standard;
-    reportCopy.executionTimeMs = Date.now() - startTime + Math.floor(Math.random() * 400 + 800);
-    reportCopy.modelUsed = `OpenSource Engine (${config.modelName})`;
+    reportCopy.executionTimeMs = Date.now() - startTime;
+    reportCopy.modelUsed = `Demo Engine (${config.modelName})`;
     return reportCopy;
   }
 
-  // If user uploaded a custom file (image / PDF)
-  // Run simulated vision-model analysis with realistic findings tailored to the chosen standard:
-  const isPass = Math.random() > 0.65;
-  const customDiscrepancies: Discrepancy[] = isPass
-    ? []
-    : [
-        {
-          id: 'D-301',
-          title: `Wire Sizing Rule Violation under ${standard}`,
-          description: `Detected 24 AWG wire routed to primary 12V bus branch without inline fuse protection.`,
-          severity: 'CRITICAL',
-          confidence: 94,
-          standardRef: standard === 'UL-508A' ? 'UL 508A §15.1' : 'IPC/WHMA-A-620 §4.2',
-          componentRef: 'Custom Schematic Line L-01 to J1-4',
-          plainLanguageExplanation: 'Conductor current-carrying capacity does not match the upstream power source rating, creating risk of overheating and insulation breakdown.',
-          recommendation: 'Increase wire gauge to minimum 18 AWG or incorporate 3A fast-acting inline fuse.',
-          bbox: { x: 30, y: 35, width: 25, height: 18 },
-          status: 'UNREVIEWED',
-        },
-        {
-          id: 'D-302',
-          title: 'Missing Reference Designator Annotation',
-          description: 'Connector symbol in quadrant B2 lacks unique component reference designator.',
-          severity: 'MINOR',
-          confidence: 82,
-          standardRef: 'IPC-620 §3.1 & IEEE 315',
-          componentRef: 'Quadrant B2 Multi-Pin Header',
-          plainLanguageExplanation: 'Component reference designator tag is omitted, preventing automated pick-and-place and harness assembly validation.',
-          recommendation: 'Assign unique designator (e.g. CN-04) per drawing numbering schema.',
-          bbox: { x: 65, y: 48, width: 18, height: 15 },
-          status: 'UNREVIEWED',
-        },
-        {
-          id: 'D-303',
-          title: 'Creepage Spacing Threshold Warning',
-          description: 'High-voltage track clearance to ground chassis boundary is below standard tolerance.',
-          severity: 'MAJOR',
-          confidence: 87,
-          standardRef: standard === 'UL-508A' ? 'UL 508A §28.1' : 'IPC-A-610 §6.3',
-          componentRef: 'Terminal Strip TS-1 Ground Pad',
-          plainLanguageExplanation: 'Clearance spacing between energized terminals and grounded structure does not meet dielectric withstand voltage thresholds.',
-          recommendation: 'Increase physical isolation barrier distance by at least 3.2mm.',
-          bbox: { x: 45, y: 68, width: 22, height: 16 },
-          status: 'UNREVIEWED',
-        },
-      ];
+  // DEMO/TEST ONLY: Deterministic fallback discrepancies without Math.random()
+  const customDiscrepancies: Discrepancy[] = [
+    {
+      id: 'D-301',
+      title: `Wire Sizing Rule Violation under ${standard}`,
+      description: `Detected 24 AWG wire routed to primary 12V bus branch without inline fuse protection.`,
+      severity: 'CRITICAL',
+      confidence: 94,
+      standardRef: standard === 'UL-508A' ? 'UL 508A §15.1' : 'IPC/WHMA-A-620 §4.2',
+      componentRef: 'Custom Schematic Line L-01 to J1-4',
+      plainLanguageExplanation:
+        'Conductor current-carrying capacity does not match the upstream power source rating, creating risk of overheating and insulation breakdown.',
+      recommendation: 'Increase wire gauge to minimum 18 AWG or incorporate 3A fast-acting inline fuse.',
+      bbox: { x: 30, y: 35, width: 25, height: 18 },
+      status: 'UNREVIEWED',
+    },
+    {
+      id: 'D-302',
+      title: 'Missing Reference Designator Annotation',
+      description: 'Connector symbol in quadrant B2 lacks unique component reference designator.',
+      severity: 'MINOR',
+      confidence: 82,
+      standardRef: 'IPC-620 §3.1 & IEEE 315',
+      componentRef: 'Quadrant B2 Multi-Pin Header',
+      plainLanguageExplanation:
+        'Component reference designator tag is omitted, preventing automated pick-and-place and harness assembly validation.',
+      recommendation: 'Assign unique designator (e.g. CN-04) per drawing numbering schema.',
+      bbox: { x: 65, y: 48, width: 18, height: 15 },
+      status: 'UNREVIEWED',
+    },
+  ];
 
   const totalFailed = customDiscrepancies.length;
-  const executed = 120 + Math.floor(Math.random() * 40);
-  const passed = executed - totalFailed;
+  const executed = STANDARDS_RULE_REGISTRY.length;
+  const passed = Math.max(0, executed - totalFailed);
 
   return {
     id: `QC-${Date.now().toString().slice(-6)}`,
     diagramName,
-    diagramCategory: diagramCategory || 'Custom Wiring Schematic',
+    diagramCategory: diagramCategory || 'Custom Wiring Schematic (Demo)',
     standard,
     timestamp: new Date().toISOString(),
-    overallResult: isPass ? 'PASS' : 'FAIL',
-    qualityScore: isPass ? 100 : Math.max(65, 100 - totalFailed * 11),
+    overallResult: 'FAIL',
+    qualityScore: 78,
     summary: {
       executed,
       passed,
       failed: totalFailed,
-      na: 14,
+      na: 0,
       critical: customDiscrepancies.filter((d) => d.severity === 'CRITICAL').length,
       major: customDiscrepancies.filter((d) => d.severity === 'MAJOR').length,
       minor: customDiscrepancies.filter((d) => d.severity === 'MINOR').length,
     },
     discrepancies: customDiscrepancies,
-    inspectedBy: `AI QC Engine (${config.modelName})`,
-    modelUsed: `OpenSource Vision-LLM (${config.modelName})`,
-    executionTimeMs: Date.now() - startTime + Math.floor(Math.random() * 500 + 700),
+    inspectedBy: `Demo QC Engine (${config.modelName})`,
+    modelUsed: `Demo Engine (${config.modelName})`,
+    executionTimeMs: Date.now() - startTime,
     customImageDataUri: imagePayload,
   };
 }

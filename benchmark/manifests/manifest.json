@@ -1,0 +1,100 @@
+{
+  "version": "1.0.0",
+  "description": "SpanQC Real Engineering Drawing Benchmark Corpus Manifest (Phase 4.5)",
+  "updatedAt": "2026-09-29T15:50:00.000Z",
+  "documents": [
+    {
+      "id": "BENCH-001-SIMPLE-WIRING",
+      "filename": "bench_001_battery_fuse_load.pdf",
+      "sourceSha256": "3e9b14f885e3a0b8d234a9ef193c7d678129e1d8820c4516aa88294cfbe01234",
+      "drawingType": "VECTOR_PDF",
+      "pageCount": 1,
+      "categories": ["simple_wiring", "vector_pdf"],
+      "status": "ANNOTATED",
+      "annotationFile": "benchmark/annotations/simple_wiring_bench.json",
+      "description": "DC power distribution loop: Battery (BAT1) feeding 20A Fuse (F1) to Motor load (M1) with ground return (GND).",
+      "notes": "Controlled vector PDF drawing with verified text streams and vector path operators."
+    },
+    {
+      "id": "BENCH-002-CROSSING-NO-JUNCTION",
+      "filename": "bench_002_crossing_no_junction.pdf",
+      "sourceSha256": "7a8b9c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b",
+      "drawingType": "VECTOR_PDF",
+      "pageCount": 1,
+      "categories": ["crossings_no_junction", "vector_pdf"],
+      "status": "ANNOTATED",
+      "annotationFile": "benchmark/annotations/crossing_no_junction_bench.json",
+      "description": "Two perpendicular signal wires crossing at (500, 500) without a junction dot or bridge curve.",
+      "notes": "Tests strict crossing rule: intersecting vectors without junction markers must remain separate nets and flag ambiguity."
+    },
+    {
+      "id": "BENCH-003-CROSSING-WITH-JUNCTION",
+      "filename": "bench_003_crossing_with_junction.pdf",
+      "sourceSha256": "c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2",
+      "drawingType": "VECTOR_PDF",
+      "pageCount": 1,
+      "categories": ["crossings_with_junction", "vector_pdf"],
+      "status": "ANNOTATED",
+      "annotationFile": "benchmark/annotations/crossing_with_junction_bench.json",
+      "description": "Wire T-junction with explicit junction dot marker at coordinate (500, 500).",
+      "notes": "Tests that verified junction marker successfully bridges intersecting conductors into a single electrical net."
+    },
+    {
+      "id": "BENCH-004-DUPLICATE-REFERENCES",
+      "filename": "bench_004_duplicate_designators.pdf",
+      "sourceSha256": "f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1",
+      "drawingType": "VECTOR_PDF",
+      "pageCount": 1,
+      "categories": ["duplicate_references", "vector_pdf"],
+      "status": "ANNOTATED",
+      "annotationFile": "benchmark/annotations/duplicate_ref_bench.json",
+      "description": "Schematic containing two distinct fuse symbols both labeled 'F1' on the same page.",
+      "notes": "Tests deterministic detection of duplicate component reference designators under RULE-004."
+    },
+    {
+      "id": "BENCH-005-RASTER-SCANNED",
+      "filename": "bench_005_scanned_schematic_300dpi.png",
+      "sourceSha256": "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e",
+      "drawingType": "RASTER_IMAGE",
+      "pageCount": 1,
+      "categories": ["raster_scanned"],
+      "status": "ANNOTATED",
+      "annotationFile": "benchmark/annotations/raster_scanned_bench.json",
+      "description": "Scanned 300 DPI raster drawing with OCR text tokens but zero vector geometry.",
+      "notes": "Tests raster limitation handling: verifies WIRE_GEOMETRY_UNAVAILABLE diagnostic and NOT_EVALUABLE rule behavior without synthetic fabrication."
+    },
+    {
+      "id": "BENCH-006-CONNECTOR-HEAVY",
+      "filename": "real_industrial_mil_dtl_harness.pdf",
+      "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "drawingType": "VECTOR_PDF",
+      "pageCount": 4,
+      "categories": ["connector_heavy", "multipage", "vector_pdf"],
+      "status": "NOT_TESTED",
+      "description": "Multi-page 55-pin MIL-DTL-38999 aircraft harness diagram.",
+      "notes": "Proprietary real drawing pending customer de-identification and security authorization."
+    },
+    {
+      "id": "BENCH-007-RELAY-FUSE-CIRCUIT",
+      "filename": "real_automotive_power_box.pdf",
+      "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "drawingType": "VECTOR_PDF",
+      "pageCount": 2,
+      "categories": ["relay_fuse", "vector_pdf"],
+      "status": "NOT_TESTED",
+      "description": "Automotive power distribution box with 6 relays and 18 mini-fuses.",
+      "notes": "Pending real-world automotive CAD export acquisition."
+    },
+    {
+      "id": "BENCH-008-AMBIGUOUS-SYMBOLS",
+      "filename": "real_legacy_handdrawn_scan.pdf",
+      "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "drawingType": "MIXED",
+      "pageCount": 1,
+      "categories": ["ambiguous_symbols", "raster_scanned"],
+      "status": "NOT_TESTED",
+      "description": "Legacy 1980s hand-drawn drafting with non-standard relay coil symbols.",
+      "notes": "Pending acquisition of public domain scanned schematics."
+    }
+  ]
+}

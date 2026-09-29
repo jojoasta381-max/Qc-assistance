@@ -1,14 +1,18 @@
 import { NextRequest } from 'next/server';
-import { resolveTenant } from '@/lib/tenant-resolver';
+import { requirePermission, handleAuthError } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-v1-response';
+import { recordAuditEvent } from '@/lib/audit/audit-logger';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'finding:review');
+    const tenant = authCtx.tenant;
+    const user = authCtx.user;
+
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const { decision, comment } = body;
@@ -38,27 +42,15 @@ export async function POST(
       return apiError('FINDING_NOT_FOUND', `Finding "${id}" not found.`, 404);
     }
 
-    // Resolve reviewer user
-    let reviewer = await prisma.user.findFirst({
-      where: { tenantId: tenant.id },
-    });
-    if (!reviewer) {
-      reviewer = await prisma.user.create({
-        data: {
-          name: 'Lead QC Inspector',
-          email: `inspector@${tenant.slug}.com`,
-          role: 'LEAD_QC_INSPECTOR',
-          tenantId: tenant.id,
-        },
-      });
-    }
+    // Reviewer is strictly the authenticated user
+    const reviewerId = user.id;
 
     // Transactionally create review and update finding status
     const [review, updatedFinding] = await prisma.$transaction([
       prisma.findingReview.create({
         data: {
           findingId: finding.id,
-          reviewerId: reviewer.id,
+          reviewerId,
           decision,
           comment: comment || null,
         },
@@ -70,15 +62,13 @@ export async function POST(
     ]);
 
     // Record audit event
-    await prisma.auditEvent.create({
-      data: {
-        tenantId: tenant.id,
-        actorId: reviewer.id,
-        action: 'FINDING_REVIEWED',
-        entityType: 'FINDING',
-        entityId: finding.id,
-        metadata: JSON.stringify({ decision, comment }),
-      },
+    await recordAuditEvent({
+      tenantId: tenant.id,
+      actorId: user.id,
+      action: 'FINDING_REVIEWED',
+      entityType: 'FINDING',
+      entityId: finding.id,
+      metadata: { decision, comment },
     });
 
     return apiSuccess({
@@ -87,12 +77,14 @@ export async function POST(
         finding_id: finding.id,
         decision: review.decision,
         comment: review.comment,
-        reviewer: reviewer.name,
+        reviewer: user.name,
         created_at: review.createdAt,
       },
       finding_status: updatedFinding.status,
     }, 201);
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('REVIEW_SUBMISSION_FAILED', err.message || 'Failed to submit review', 400);
   }
 }

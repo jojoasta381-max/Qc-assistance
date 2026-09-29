@@ -48,7 +48,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (onLoginSuccess) {
         onLoginSuccess({
           name: demoRole === 'qc_lead' ? 'Pravin' : demoRole === 'ems_builder' ? 'Gogulnath' : 'Anand Kumar',
-          email: demoRole === 'qc_lead' ? 'pravin@spandsons.com' : demoRole === 'ems_builder' ? 'gogulnath@spandsons.com' : 'anand.k@tataautocomp.com',
+          email: demoRole === 'qc_lead' ? 'pravin@spandsons.com' : demoRole === 'ems_builder' ? 'gogulnath@spandsons.com' : 'anand.k@demo-engineering.com',
           role: demoRole === 'qc_lead' ? 'Lead QC Inspector' : demoRole === 'ems_builder' ? 'Harness Engineer' : 'Plant Quality Head',
           plan: 'MID_5',
         });

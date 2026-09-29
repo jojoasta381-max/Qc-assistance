@@ -71,13 +71,13 @@ const PIPELINE_STAGES = [
   {
     step: '05',
     label: 'Audit Report',
-    title: 'Audit Certification & Multi-Format Export',
-    subtitle: 'Signed PDF certificates & multi-sheet Excel XLSX workbooks',
+    title: 'Audit Inspection Report & Multi-Format Export',
+    subtitle: 'Cryptographically hashed PDF inspection reports & multi-sheet Excel XLSX workbooks',
     description:
-      'The inspection results are compiled into an executive audit report. Quality managers can download formal printable PDF compliance certificates and Excel workbooks.',
+      'The inspection results are compiled into an executive audit report. Quality managers can download formal printable PDF inspection reports and Excel workbooks.',
     input: 'Validated QC summary & discrepancies dataset',
     transformation: 'Compiling executive donut chart, summary matrix, and discrepancy table',
-    output: 'Official PDF Certificate + Excel XLSX spreadsheet with 5 structured sheets',
+    output: 'Hashed PDF Inspection Report + Excel XLSX spreadsheet with 5 structured sheets',
     evidence: 'Audit Record ID: AUD-8492-2026',
   },
 ];

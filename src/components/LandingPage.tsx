@@ -320,8 +320,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {/* Step 2: AI QC Engine */}
             <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-                <span>02. AI QC ENGINE</span>
-                <span className="text-emerald-400">156 Rules</span>
+                <span>02. DETERMINISTIC &amp; AI QC</span>
+                <span className="text-emerald-400">Deterministic Rules</span>
               </div>
               <div className="p-3 rounded-lg bg-[#060B14] border border-white/10 font-mono text-xs space-y-1">
                 <div className="text-sky-400 font-semibold">&gt; Checking IPC/WHMA-A-620...</div>
@@ -333,13 +333,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {/* Step 3: Validated Report */}
             <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-                <span>03. QC REPORT</span>
-                <span className="text-rose-400 font-bold">FAIL (6 Critical)</span>
+                <span>03. QC REVIEW REPORT</span>
+                <span className="text-rose-400 font-bold">FAIL (Critical Findings)</span>
               </div>
               <div className="p-3 rounded-lg bg-[#060B14] border border-white/10 font-mono text-xs flex items-center justify-between">
                 <div>
-                  <div className="text-white font-bold">156 Checks Executed</div>
-                  <div className="text-[10px] text-slate-400">112 Passed • 24 Failed</div>
+                  <div className="text-white font-bold">Rule Evaluation Complete</div>
+                  <div className="text-[10px] text-slate-400">Evidence &amp; Coordinates Linked</div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">
@@ -354,21 +354,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
 
-        {/* Enterprise Trust Badges */}
+        {/* Engineering Domain Focus */}
         <div className="mt-12 pt-8 border-t border-white/[0.08]">
           <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 mb-4">
-            Engineered for Quality Control Teams in Aerospace, Automotive & Industrial Automation
+            Engineered for Quality Control Teams in Critical Electrical Engineering Sectors
           </div>
           <div className="flex flex-wrap items-center justify-center gap-8 text-xs font-mono font-bold text-slate-400">
-            <span className="hover:text-white transition">SPANDSONS HORIZON</span>
+            <span className="hover:text-white transition">AUTOMOTIVE WIRE HARNESSES</span>
             <span>•</span>
-            <span className="hover:text-white transition">TATA AUTOCOMP SYSTEMS</span>
+            <span className="hover:text-white transition">INDUSTRIAL CONTROL PANELS</span>
             <span>•</span>
-            <span className="hover:text-white transition">L&amp;T ELECTRICAL</span>
+            <span className="hover:text-white transition">DEFENSE &amp; AVIONICS</span>
             <span>•</span>
-            <span className="hover:text-white transition">MOTHERSON SUMI</span>
+            <span className="hover:text-white transition">POWER DISTRIBUTION</span>
             <span>•</span>
-            <span className="hover:text-white transition">AEROSYSTEMS EMS</span>
+            <span className="hover:text-white transition">AUTOMATION SYSTEMS</span>
           </div>
         </div>
       </section>
@@ -434,7 +434,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             <h3 className="font-bold text-white text-sm">Export Report</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Generate signed PDF compliance certificates and structured Excel XLSX sheets.
+              Generate formal PDF QC review reports and structured Excel XLSX workbooks.
             </p>
           </div>
         </div>
@@ -462,7 +462,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Active & Supported
               </span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-                156+ Checks
+                Standards Rules
               </span>
             </div>
             <h3 className="text-lg font-bold text-white">IPC/WHMA-A-620 &amp; UL 508A</h3>
@@ -542,10 +542,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-mono text-xs font-bold border border-rose-500/30">
                   OVERALL RESULT: FAIL
                 </span>
-                <span className="text-xs text-slate-400 font-mono">DWG: WH-402-REV-C</span>
+                <span className="text-xs text-slate-400 font-mono">Sample Illustrative Review</span>
               </div>
               <h3 className="text-xl font-bold text-white mt-1">
-                24 Discrepancies Flagged Across 156 Executed Checks
+                Engineering Findings Flagged Across Applicable Standards Checks
               </h3>
             </div>
 

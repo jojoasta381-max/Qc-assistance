@@ -1,11 +1,15 @@
 import { NextRequest } from 'next/server';
-import { resolveTenant } from '@/lib/tenant-resolver';
+import { requirePermission, handleAuthError } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-v1-response';
+import { recordAuditEvent } from '@/lib/audit/audit-logger';
+import { verifyTenantStorageKeyAccess } from '@/lib/storage/storage-provider';
 
 export async function GET(req: NextRequest) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'document:read');
+    const tenant = authCtx.tenant;
+
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get('project_id');
     const status = searchParams.get('status');
@@ -50,18 +54,27 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('DOCUMENTS_FETCH_FAILED', err.message || 'Failed to list documents', 500);
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'document:upload');
+    const tenant = authCtx.tenant;
+    const user = authCtx.user;
+
     const body = await req.json().catch(() => ({}));
     const { filename, mime_type, size_bytes, storage_key, project_id, checksum } = body;
 
     if (!filename || !storage_key) {
       return apiError('VALIDATION_ERROR', 'filename and storage_key are required.', 400);
+    }
+
+    if (!verifyTenantStorageKeyAccess(storage_key, tenant.id)) {
+      return apiError('FORBIDDEN', 'Invalid storage_key: must be within organization storage namespace.', 403);
     }
 
     // Verify project belongs to tenant if provided
@@ -84,6 +97,7 @@ export async function POST(req: NextRequest) {
         storageKey: storage_key,
         status: 'UPLOADED',
         checksum: checksum || null,
+        createdBy: user.id,
         versions: {
           create: {
             version: 1,
@@ -99,14 +113,13 @@ export async function POST(req: NextRequest) {
     });
 
     // Record audit event
-    await prisma.auditEvent.create({
-      data: {
-        tenantId: tenant.id,
-        action: 'DOCUMENT_UPLOADED',
-        entityType: 'DOCUMENT',
-        entityId: document.id,
-        metadata: JSON.stringify({ filename, sizeBytes: size_bytes }),
-      },
+    await recordAuditEvent({
+      tenantId: tenant.id,
+      actorId: user.id,
+      action: 'DOCUMENT_UPLOADED',
+      entityType: 'DOCUMENT',
+      entityId: document.id,
+      metadata: { filename, sizeBytes: size_bytes },
     });
 
     return apiSuccess({
@@ -121,6 +134,8 @@ export async function POST(req: NextRequest) {
       },
     }, 201);
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('DOCUMENT_CREATION_FAILED', err.message || 'Failed to record document', 400);
   }
 }

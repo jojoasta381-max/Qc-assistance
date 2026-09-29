@@ -5,6 +5,7 @@ import { evaluateIpc620Rules, IpcAcceptanceClass } from '@/lib/rules/ipc-620-eng
 import { evaluateUl508aRules } from '@/lib/rules/ul-508a-engine';
 import { evaluateCustomSopRules, TenantCustomRuleConfig } from '@/lib/rules/custom-sop-engine';
 import { QCReport, Discrepancy, StandardPreset, QCSummary } from '@/types/qc';
+import { STANDARDS_RULE_REGISTRY } from '@/lib/rules/standards-registry';
 
 export interface EvaluationOptions {
   acceptanceClass?: IpcAcceptanceClass;
@@ -71,15 +72,18 @@ export async function runDeterministicQcInspection(
     discrepancies.push(...defaultDiscrepancies);
   }
 
-  // 4. Calculate deterministic metrics
+  // 4. Calculate deterministic metrics from authoritative registry
   const critical = discrepancies.filter((d) => d.severity === 'CRITICAL').length;
   const major = discrepancies.filter((d) => d.severity === 'MAJOR').length;
   const minor = discrepancies.filter((d) => d.severity === 'MINOR').length;
 
-  const totalChecksExecuted = 142;
+  const relevantRules = STANDARDS_RULE_REGISTRY.filter(
+    (r) => r.standard === standard || standard === 'ISO-1219' || r.standard === 'CUSTOMER-SOP'
+  );
+  const totalChecksExecuted = relevantRules.length > 0 ? relevantRules.length : STANDARDS_RULE_REGISTRY.length;
   const failed = discrepancies.length;
-  const passed = Math.max(0, totalChecksExecuted - failed - 12);
-  const na = 12;
+  const passed = Math.max(0, totalChecksExecuted - failed);
+  const na = 0;
 
   // Mathematical scoring model: 100 - (15 * crit + 8 * major + 3 * minor)
   const scorePenalty = critical * 15 + major * 8 + minor * 3;
@@ -97,7 +101,7 @@ export async function runDeterministicQcInspection(
     minor,
   };
 
-  const reportId = `QC-${Math.floor(100000 + Math.random() * 900000)}`;
+  const reportId = `QC-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 
   return {
     id: reportId,

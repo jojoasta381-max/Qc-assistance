@@ -7,17 +7,30 @@ import {
   createSessionToken,
   setSessionCookie,
 } from '@/lib/auth';
+import { isProduction } from '@/lib/config/app-mode';
+import { recordAuditEvent } from '@/lib/audit/audit-logger';
 
 export async function POST(req: NextRequest) {
   try {
-    await ensureDefaultTenantData();
-    const body = await req.json();
-    const { email, password, demoRole, isGoogleAuth, name } = body;
+    if (!isProduction()) {
+      await ensureDefaultTenantData();
+    }
 
-    let targetUser: any = null;
+    const body = await req.json().catch(() => ({}));
+    const { email, password, demoRole, isGoogleAuth } = body;
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
 
-    // Mode 1: Quick Demo Login
+    // 1. Check for Demo Login attempt
     if (demoRole) {
+      if (isProduction()) {
+        return NextResponse.json(
+          { error: 'Demo passwordless login is strictly disabled in PRODUCTION mode.' },
+          { status: 403 }
+        );
+      }
+
+      // Allowed only in DEMO or TEST mode
+      let targetUser = null;
       if (demoRole === 'qc_lead') {
         targetUser = await prisma.user.findFirst({
           where: { email: 'pravin@spandsons.com' },
@@ -30,133 +43,224 @@ export async function POST(req: NextRequest) {
         });
       } else if (demoRole === 'compliance_head') {
         targetUser = await prisma.user.findFirst({
-          where: { email: 'anand.k@tataautocomp.com' },
+          where: { email: 'anand.k@demo-engineering.com' },
           include: { tenant: true },
         });
       }
 
       if (!targetUser) {
-        // Fallback: pick first user in database
         targetUser = await prisma.user.findFirst({
           include: { tenant: true },
         });
       }
-    }
-    // Mode 2: Google SSO Simulation
-    else if (isGoogleAuth && email) {
-      const existing = await prisma.user.findUnique({
-        where: { email },
-        include: { tenant: true },
+
+      if (!targetUser || !targetUser.tenant) {
+        return NextResponse.json(
+          { error: 'No demo user found in database.' },
+          { status: 404 }
+        );
+      }
+
+      const token = createSessionToken({
+        userId: targetUser.id,
+        email: targetUser.email,
+        name: targetUser.name,
+        role: targetUser.role,
+        tenantId: targetUser.tenant.id,
+        tenantSlug: targetUser.tenant.slug,
       });
 
-      if (existing) {
-        targetUser = existing;
-      } else {
-        // Find default tenant or create one
-        let defaultTenant = await prisma.tenant.findUnique({
-          where: { slug: 'spandsons' },
-        });
+      await setSessionCookie(token);
 
-        if (!defaultTenant) {
-          defaultTenant = await prisma.tenant.create({
-            data: {
-              name: 'Spandsons Horizon Engineering Pvt. Ltd.',
-              slug: 'spandsons',
-              plan: 'MID_5',
-              checkQuota: 100,
-            },
-          });
-        }
+      await recordAuditEvent({
+        tenantId: targetUser.tenant.id,
+        actorId: targetUser.id,
+        action: 'AUTH_LOGIN_DEMO',
+        entityType: 'USER',
+        entityId: targetUser.id,
+        ipAddress: clientIp,
+        metadata: { demoRole },
+      });
 
-        targetUser = await prisma.user.create({
-          data: {
-            email,
-            name: name || email.split('@')[0],
-            role: 'QC_INSPECTOR',
-            tenantId: defaultTenant.id,
-          },
-          include: { tenant: true },
-        });
-      }
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: targetUser.id,
+          name: targetUser.name,
+          email: targetUser.email,
+          role: targetUser.role,
+        },
+        tenant: {
+          id: targetUser.tenant.id,
+          name: targetUser.tenant.name,
+          slug: targetUser.tenant.slug,
+        },
+      });
     }
-    // Mode 3: Standard Email + Password
-    else if (email) {
-      targetUser = await prisma.user.findUnique({
+
+    // 2. Google OAuth / SSO
+    if (isGoogleAuth) {
+      // In production, unverified Google SSO is strictly disabled
+      if (isProduction()) {
+        return NextResponse.json(
+          { error: 'Cryptographic Google OIDC verification is not configured for production. Please log in with email and password.' },
+          { status: 400 }
+        );
+      }
+
+      // Non-production test fallback only if email provided
+      if (!email) {
+        return NextResponse.json(
+          { error: 'Email is required for Google SSO authentication.' },
+          { status: 400 }
+        );
+      }
+
+      const existingUser = await prisma.user.findUnique({
         where: { email: email.toLowerCase().trim() },
         include: { tenant: true },
       });
 
-      if (!targetUser) {
+      if (!existingUser || !existingUser.tenant) {
         return NextResponse.json(
-          { error: 'No account found with this email address.' },
-          { status: 401 }
+          { error: 'No existing account associated with this Google email.' },
+          { status: 404 }
         );
       }
 
-      // If user has a password set, verify it
-      if (targetUser.passwordHash && password) {
-        const isValid = verifyPassword(password, targetUser.passwordHash);
-        if (!isValid) {
-          return NextResponse.json(
-            { error: 'Invalid password. Please check your credentials.' },
-            { status: 401 }
-          );
-        }
-      } else if (!targetUser.passwordHash && password) {
-        // First-time password assignment for pre-seeded user
-        await prisma.user.update({
-          where: { id: targetUser.id },
-          data: { passwordHash: hashPassword(password) },
-        });
-      }
-    } else {
+      const token = createSessionToken({
+        userId: existingUser.id,
+        email: existingUser.email,
+        name: existingUser.name,
+        role: existingUser.role,
+        tenantId: existingUser.tenant.id,
+        tenantSlug: existingUser.tenant.slug,
+      });
+
+      await setSessionCookie(token);
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: existingUser.id,
+          name: existingUser.name,
+          email: existingUser.email,
+          role: existingUser.role,
+        },
+        tenant: {
+          id: existingUser.tenant.id,
+          name: existingUser.tenant.name,
+          slug: existingUser.tenant.slug,
+        },
+      });
+    }
+
+    // 3. Standard Email + Password
+    if (!email || !password) {
       return NextResponse.json(
-        { error: 'Email or demo role is required.' },
+        { error: 'Email and password are required.' },
         { status: 400 }
       );
     }
 
-    if (!targetUser || !targetUser.tenant) {
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+      include: { tenant: true },
+    });
+
+    if (!user || !user.tenant) {
+      // Return generic 401 to prevent user enumeration
       return NextResponse.json(
-        { error: 'Authentication failed. Account not properly provisioned.' },
+        { error: 'Invalid email or password.' },
         { status: 401 }
       );
     }
 
+    if (user.status !== 'ACTIVE') {
+      return NextResponse.json(
+        { error: 'Account is suspended or deactivated. Please contact support.' },
+        { status: 403 }
+      );
+    }
+
+    // Check password
+    if (user.passwordHash) {
+      const isValid = verifyPassword(password, user.passwordHash);
+      if (!isValid) {
+        await recordAuditEvent({
+          tenantId: user.tenant.id,
+          actorId: user.id,
+          action: 'AUTH_LOGIN_FAILED',
+          entityType: 'USER',
+          entityId: user.id,
+          ipAddress: clientIp,
+          metadata: { reason: 'INVALID_PASSWORD' },
+        });
+
+        return NextResponse.json(
+          { error: 'Invalid email or password.' },
+          { status: 401 }
+        );
+      }
+    } else {
+      // Pre-seeded user without password in non-production
+      if (isProduction()) {
+        return NextResponse.json(
+          { error: 'Password authentication required. Please reset password.' },
+          { status: 401 }
+        );
+      }
+      // In dev/test, set password on first login
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: hashPassword(password) },
+      });
+    }
+
     // Issue signed session token
     const token = createSessionToken({
-      userId: targetUser.id,
-      email: targetUser.email,
-      name: targetUser.name,
-      role: targetUser.role,
-      tenantId: targetUser.tenant.id,
-      tenantSlug: targetUser.tenant.slug,
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tenantId: user.tenant.id,
+      tenantSlug: user.tenant.slug,
     });
 
     await setSessionCookie(token);
 
+    await recordAuditEvent({
+      tenantId: user.tenant.id,
+      actorId: user.id,
+      action: 'AUTH_LOGIN_SUCCESS',
+      entityType: 'USER',
+      entityId: user.id,
+      ipAddress: clientIp,
+    });
+
     return NextResponse.json({
       success: true,
       user: {
-        id: targetUser.id,
-        name: targetUser.name,
-        email: targetUser.email,
-        phone: targetUser.phone,
-        role: targetUser.role,
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
       },
       tenant: {
-        id: targetUser.tenant.id,
-        name: targetUser.tenant.name,
-        slug: targetUser.tenant.slug,
-        plan: targetUser.tenant.plan,
-        checkQuota: targetUser.tenant.checkQuota,
-        quotaUsed: targetUser.tenant.quotaUsed,
+        id: user.tenant.id,
+        name: user.tenant.name,
+        slug: user.tenant.slug,
+        plan: user.tenant.plan,
+        checkQuota: user.tenant.checkQuota,
+        quotaUsed: user.tenant.quotaUsed,
       },
     });
   } catch (error: any) {
     console.error('Login error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Authentication processing error.' },
+      { error: 'Authentication processing error.' },
       { status: 500 }
     );
   }

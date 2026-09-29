@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
-import { resolveTenant } from '@/lib/tenant-resolver';
+import { requirePermission, handleAuthError } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-v1-response';
 
 export async function GET(req: NextRequest) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'billing:read');
+    const tenant = authCtx.tenant;
 
     const subscription = await prisma.subscription.findFirst({
       where: { tenantId: tenant.id },
@@ -64,6 +65,8 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('SUBSCRIPTION_FETCH_FAILED', err.message || 'Failed to retrieve subscription', 500);
   }
 }

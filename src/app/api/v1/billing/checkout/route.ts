@@ -1,23 +1,40 @@
 import { NextRequest } from 'next/server';
-import { resolveTenant } from '@/lib/tenant-resolver';
+import { requirePermission, handleAuthError } from '@/lib/auth-guard';
 import { createCheckoutOrder } from '@/lib/billing/razorpay-service';
 import { apiSuccess, apiError } from '@/lib/api-v1-response';
+import { recordAuditEvent } from '@/lib/audit/audit-logger';
 
 export async function POST(req: NextRequest) {
   try {
-    const tenant = await resolveTenant(req);
-    const body = await req.json().catch(() => ({}));
+    const authCtx = await requirePermission(req, 'billing:manage');
+    const tenant = authCtx.tenant;
+    const user = authCtx.user;
 
+    const body = await req.json().catch(() => ({}));
     const { plan_code, idempotency_key, customer } = body;
+
     if (!plan_code) {
-      return apiError('INVALID_PLAN', 'plan_code is required (e.g. PAY_PER_CHECK, PRO_MONTHLY, PRO_ANNUAL)', 400);
+      return apiError('INVALID_PLAN', 'plan_code is required (e.g. ENGINEERING_TEAM, ENTERPRISE_TEAM, INDUSTRIAL_SCALE)', 400);
     }
 
     const orderData = await createCheckoutOrder({
       tenantId: tenant.id,
       planCode: plan_code,
       idempotencyKey: idempotency_key || req.headers.get('idempotency-key') || undefined,
-      customer,
+      customer: {
+        name: customer?.name || user.name,
+        email: customer?.email || user.email,
+        phone: customer?.phone || undefined,
+      },
+    });
+
+    await recordAuditEvent({
+      tenantId: tenant.id,
+      actorId: user.id,
+      action: 'CHECKOUT_ORDER_CREATED',
+      entityType: 'PAYMENT_ORDER',
+      entityId: orderData.internalOrderId,
+      metadata: { planCode: plan_code, providerOrderId: orderData.orderId },
     });
 
     return apiSuccess({
@@ -36,6 +53,8 @@ export async function POST(req: NextRequest) {
       },
     }, 201);
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('CHECKOUT_CREATION_FAILED', err.message || 'Failed to initiate checkout', 400);
   }
 }

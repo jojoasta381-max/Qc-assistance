@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 
 export interface ApiV1ErrorPayload {
   error: {
     code: string;
     message: string;
-    request_id?: string;
+    requestId: string;
     details?: unknown;
   };
 }
 
 export function generateRequestId(): string {
-  return `req_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+  return `req_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
 }
 
 export function apiSuccess<T>(data: T, status = 200): NextResponse {
@@ -34,7 +35,7 @@ export function apiError(
     error: {
       code,
       message,
-      request_id: requestId,
+      requestId,
       ...(details ? { details } : {}),
     },
   };
@@ -47,3 +48,4 @@ export function apiError(
     },
   });
 }
+

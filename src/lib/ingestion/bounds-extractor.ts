@@ -70,9 +70,9 @@ export function extractDrawingZones(
         title: 'Variable Frequency Drive Motor Control Panel',
         sheetNumber: '3 of 12',
         scale: 'NTS',
-        drawnBy: 'Anand Kumar',
-        approvedBy: 'Rajesh K.',
-        companyName: 'Tata AutoComp Systems Ltd.',
+        drawnBy: 'A. Kumar',
+        approvedBy: 'R. Sharma',
+        companyName: 'Industrial Controls Division (Sample)',
       },
     };
   }

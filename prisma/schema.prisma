@@ -34,6 +34,8 @@ model Tenant {
   entitlements    Entitlement[]
   auditEvents     AuditEvent[]
   aiRuns          AiRun[]
+  processingJobs  ProcessingJob[]
+  extractionArtifacts ExtractionArtifact[]
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
@@ -102,41 +104,54 @@ model Project {
 // 3. DOCUMENTS & VERSIONING
 // -------------------------------------------------------------
 model Document {
-  id         String            @id @default(uuid())
-  tenantId   String
-  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  projectId  String?
-  project    Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  filename   String
-  mimeType   String
-  sizeBytes  Int
-  storageKey String
-  status     String            @default("UPLOADED") // UPLOADING, UPLOADED, QUEUED, PROCESSING, REVIEW_REQUIRED, COMPLETED, FAILED
-  checksum   String?
-  createdBy  String?
-  versions   DocumentVersion[]
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  id                    String            @id @default(uuid())
+  tenantId              String
+  tenant                Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId             String?
+  project               Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  filename              String
+  mimeType              String
+  sizeBytes             Int
+  storageKey            String
+  status                String            @default("UPLOADED") // UPLOADING, UPLOADED, VERIFYING, READY_FOR_PREFLIGHT, PREFLIGHT, EXTRACTING, EXTRACTION_COMPLETE, READY_FOR_GRAPH, PROCESSING, REVIEW_REQUIRED, COMPLETED, FAILED
+  checksum              String?
+  sourceSha256          String?
+  sourceSizeBytes       Int?
+  sourceMimeType        String?
+  sourceOriginalFilename String?
+  uploadStatus          String            @default("PENDING") // PENDING, UPLOADED, VERIFIED, READY_FOR_PREFLIGHT, FAILED
+  uploadedAt            DateTime?
+  createdBy             String?
+  versions              DocumentVersion[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
+  @@index([tenantId])
+  @@index([projectId])
   @@map("documents")
 }
 
 model DocumentVersion {
-  id               String         @id @default(uuid())
-  documentId       String
-  document         Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  version          Int            @default(1)
-  storageKey       String
-  processingStatus String         @default("QUEUED") // QUEUED, PROCESSING, COMPLETED, FAILED
-  parserVersion    String         @default("1.0.0")
-  pages            DocumentPage[]
-  components       Component[]
-  connections      Connection[]
-  findings         Finding[]
-  reports          Report[]
-  aiRuns           AiRun[]
-  createdAt        DateTime       @default(now())
+  id                  String               @id @default(uuid())
+  documentId          String
+  document            Document             @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version             Int                  @default(1)
+  storageKey          String
+  sha256              String?
+  sizeBytes           Int?
+  processingStatus    String               @default("QUEUED") // QUEUED, VERIFYING, PREFLIGHT, EXTRACTING, OCR_PROCESSING, EXTRACTION_COMPLETE, READY_FOR_GRAPH, PROCESSING, COMPLETED, FAILED
+  parserVersion       String               @default("1.0.0")
+  pages               DocumentPage[]
+  components          Component[]
+  connections         Connection[]
+  findings            Finding[]
+  reports             Report[]
+  aiRuns              AiRun[]
+  processingJobs      ProcessingJob[]
+  extractionArtifacts ExtractionArtifact[]
+  createdAt           DateTime             @default(now())
 
+  @@index([documentId])
   @@map("document_versions")
 }
 
@@ -154,6 +169,46 @@ model DocumentPage {
   createdAt         DateTime        @default(now())
 
   @@map("document_pages")
+}
+
+model ProcessingJob {
+  id                String          @id @default(uuid())
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documentVersionId String
+  documentVersion   DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+  status            String          @default("QUEUED") // QUEUED, PREFLIGHT, EXTRACTING, OCR_PROCESSING, EXTRACTION_COMPLETE, READY_FOR_GRAPH, COMPLETED, FAILED
+  stage             String?         // PREFLIGHT, EXTRACTION, OCR, GRAPH
+  progress          Int             @default(0) // 0 to 100
+  errorCode         String?
+  errorMessage      String?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  metadata          String?         // JSON metadata
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@index([documentVersionId])
+  @@map("processing_jobs")
+}
+
+model ExtractionArtifact {
+  id                String          @id @default(uuid())
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documentVersionId String
+  documentVersion   DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+  artifactType      String          // PREFLIGHT_METADATA, NORMALIZED_PAGES, OCR_RAW, VECTOR_PATHS
+  storageKey        String?
+  payloadJson       String?         // Serialized JSON content or summary
+  sha256            String
+  sizeBytes         Int
+  createdAt         DateTime        @default(now())
+
+  @@index([tenantId])
+  @@index([documentVersionId])
+  @@map("extraction_artifacts")
 }
 
 // -------------------------------------------------------------

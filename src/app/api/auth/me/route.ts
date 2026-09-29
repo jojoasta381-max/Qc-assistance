@@ -3,9 +3,13 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentSession } from '@/lib/auth';
 import { ensureDefaultTenantData } from '@/lib/db-service';
 
+import { isProduction } from '@/lib/config/app-mode';
+
 export async function GET(req: NextRequest) {
   try {
-    await ensureDefaultTenantData();
+    if (!isProduction()) {
+      await ensureDefaultTenantData();
+    }
     const session = await getCurrentSession();
 
     if (!session) {
@@ -23,9 +27,10 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    if (!user || !user.tenant) {
+    if (!user || !user.tenant || user.status !== 'ACTIVE') {
       return NextResponse.json({ authenticated: false }, { status: 200 });
     }
+
 
     return NextResponse.json({
       authenticated: true,

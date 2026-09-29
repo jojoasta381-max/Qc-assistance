@@ -102,13 +102,13 @@ export default function AppReportsPage() {
         <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-emerald-400 text-xs font-mono font-bold mb-1">
             <ShieldCheck className="w-3.5 h-3.5" />
-            TRACEABILITY CERTIFICATE REGISTRY (PHASE 9)
+            QUALITY REVIEW REGISTRY
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            Certified Quality Audit Reports &amp; Certificates
+            Engineering Quality Review Reports
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Immutable inspection records signed with SHA-256 schematic hashes for AS9100 / ISO 9001 audits.
+            Traceable inspection records with SHA-256 integrity fingerprints for engineering quality review.
           </p>
         </div>
 
@@ -179,7 +179,7 @@ export default function AppReportsPage() {
         <table className="w-full text-left text-xs border-collapse font-sans">
           <thead>
             <tr className="border-b border-white/10 text-slate-400 font-mono text-[11px]">
-              <th className="py-3 px-3">Certificate ID</th>
+              <th className="py-3 px-3">Review ID</th>
               <th className="py-3 px-3">Schematic Drawing</th>
               <th className="py-3 px-3">Governing Standard</th>
               <th className="py-3 px-3 text-center">Quality Score</th>

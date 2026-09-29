@@ -5,15 +5,25 @@ import {
   createSessionToken,
   setSessionCookie,
 } from '@/lib/auth';
+import { recordAuditEvent } from '@/lib/audit/audit-logger';
+import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { name, email, password, organizationName, phone, role } = body;
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
 
     if (!name || !email || !password || !organizationName) {
       return NextResponse.json(
         { error: 'Name, work email, password, and organization name are required.' },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: 'Password must be at least 8 characters in length.' },
         { status: 400 }
       );
     }
@@ -40,41 +50,53 @@ export async function POST(req: NextRequest) {
       .replace(/^-|-$/g, '')
       .slice(0, 30) || 'organization';
 
-    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const randomSuffix = crypto.randomInt(100, 1000);
     const tenantSlug = `${baseSlug}-${randomSuffix}`;
-
-    // Create Tenant + Default Workspace + User in transaction
-    const newTenant = await prisma.tenant.create({
-      data: {
-        name: organizationName.trim(),
-        slug: tenantSlug,
-        plan: 'MID_5', // Default 14-day free trial on Mid tier with 100 checks
-        checkQuota: 100,
-        quotaUsed: 0,
-        workspaces: {
-          create: [
-            {
-              name: 'Main Plant Harness Audits',
-            },
-          ],
-        },
-      },
-    });
-
     const hashedPassword = hashPassword(password);
+    const userRole = role || 'OWNER';
 
-    const newUser = await prisma.user.create({
-      data: {
-        name: name.trim(),
-        email: cleanEmail,
-        phone: phone ? phone.trim() : null,
-        passwordHash: hashedPassword,
-        role: role || 'OWNER',
-        tenantId: newTenant.id,
-      },
+    // Create Tenant + Default Workspace + User + OrganizationMember in a single atomic transaction
+    const { newTenant, newUser } = await prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({
+        data: {
+          name: organizationName.trim(),
+          slug: tenantSlug,
+          plan: 'NORMAL_1',
+          checkQuota: 100,
+          quotaUsed: 0,
+          workspaces: {
+            create: [
+              {
+                name: 'Main Plant Harness Audits',
+              },
+            ],
+          },
+        },
+      });
+
+      const user = await tx.user.create({
+        data: {
+          name: name.trim(),
+          email: cleanEmail,
+          phone: phone ? phone.trim() : null,
+          passwordHash: hashedPassword,
+          role: userRole,
+          tenantId: tenant.id,
+        },
+      });
+
+      await tx.organizationMember.create({
+        data: {
+          tenantId: tenant.id,
+          userId: user.id,
+          role: 'OWNER',
+        },
+      });
+
+      return { newTenant: tenant, newUser: user };
     });
 
-    // Issue session token
+    // Issue signed session token
     const token = createSessionToken({
       userId: newUser.id,
       email: newUser.email,
@@ -85,6 +107,16 @@ export async function POST(req: NextRequest) {
     });
 
     await setSessionCookie(token);
+
+    await recordAuditEvent({
+      tenantId: newTenant.id,
+      actorId: newUser.id,
+      action: 'AUTH_SIGNUP',
+      entityType: 'USER',
+      entityId: newUser.id,
+      ipAddress: clientIp,
+      metadata: { organizationName: newTenant.name },
+    });
 
     return NextResponse.json({
       success: true,
@@ -103,7 +135,7 @@ export async function POST(req: NextRequest) {
         checkQuota: newTenant.checkQuota,
         quotaUsed: newTenant.quotaUsed,
       },
-    });
+    }, { status: 201 });
   } catch (error: any) {
     console.error('Signup error:', error);
     return NextResponse.json(

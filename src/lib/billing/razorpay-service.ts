@@ -23,16 +23,32 @@ export interface RazorpayOrderResponse {
   notes: Record<string, string>;
 }
 
-// Environment Credentials with Safe Sandbox Defaults
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_qcAssistantDemoKey';
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'dev_razorpay_secret_qc_bot_123';
-const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || 'dev_razorpay_webhook_secret_456';
+import { isProduction } from '@/lib/config/app-mode';
+
+export function getRazorpayConfig() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  if (isProduction()) {
+    if (!keyId || !keySecret || !webhookSecret) {
+      throw new Error('[Security Fatal] Razorpay credentials not configured in PRODUCTION mode.');
+    }
+  }
+
+  return {
+    keyId: keyId || '',
+    keySecret: keySecret || '',
+    webhookSecret: webhookSecret || '',
+  };
+}
 
 /**
  * Creates a server-authoritative Razorpay Order
  */
 export async function createCheckoutOrder(options: CheckoutOptions) {
   await ensureDefaultTenantData();
+  const { keyId } = getRazorpayConfig();
 
   // 1. Resolve tenant
   const tenant = await prisma.tenant.findUnique({
@@ -62,7 +78,7 @@ export async function createCheckoutOrder(options: CheckoutOptions) {
         internalOrderId: existingOrder.id,
         amountMinor: existingOrder.amountMinor,
         currency: existingOrder.currency,
-        keyId: RAZORPAY_KEY_ID,
+        keyId,
         planName: existingOrder.plan.name,
         planCode: existingOrder.plan.code,
       };
@@ -133,7 +149,7 @@ export async function createCheckoutOrder(options: CheckoutOptions) {
     internalOrderId: internalOrder.id,
     amountMinor,
     currency,
-    keyId: RAZORPAY_KEY_ID,
+    keyId,
     planName: plan.name,
     planCode: plan.code,
   };
@@ -148,8 +164,11 @@ export function verifyPaymentSignature(
   signature: string
 ): boolean {
   try {
+    const { keySecret } = getRazorpayConfig();
+    if (!keySecret || !signature) return false;
+
     const generated = crypto
-      .createHmac('sha256', RAZORPAY_KEY_SECRET)
+      .createHmac('sha256', keySecret)
       .update(`${orderId}|${paymentId}`)
       .digest('hex');
 
@@ -171,8 +190,11 @@ export function verifyPaymentSignature(
  */
 export function verifyWebhookSignature(rawBody: string, signature: string): boolean {
   try {
+    const { webhookSecret } = getRazorpayConfig();
+    if (!webhookSecret || !signature) return false;
+
     const expected = crypto
-      .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
+      .createHmac('sha256', webhookSecret)
       .update(rawBody)
       .digest('hex');
 
@@ -246,61 +268,63 @@ export async function processRazorpayWebhook(
       });
 
       if (order) {
-        // Update Order to PAID
-        await prisma.paymentOrder.update({
-          where: { id: order.id },
-          data: { status: 'PAID' },
-        });
+        await prisma.$transaction(async (tx) => {
+          // Update Order to PAID
+          await tx.paymentOrder.update({
+            where: { id: order.id },
+            data: { status: 'PAID' },
+          });
 
-        // Persist Payment Record
-        await prisma.payment.upsert({
-          where: { providerPaymentId },
-          update: { status: 'CAPTURED', amountMinor },
-          create: {
-            paymentOrderId: order.id,
-            providerPaymentId,
-            method,
-            status: 'CAPTURED',
-            amountMinor: order.amountMinor,
-            capturedAt: new Date(),
-            rawReference: JSON.stringify(paymentEntity),
-          },
-        });
-
-        // Provision Entitlements
-        const checksToAdd = order.plan.includedChecks || 100;
-        await prisma.tenant.update({
-          where: { id: order.tenantId },
-          data: {
-            checkQuota: { increment: checksToAdd },
-            plan: order.plan.code,
-          },
-        });
-
-        // Record in Usage Ledger
-        await prisma.usageLedger.create({
-          data: {
-            tenantId: order.tenantId,
-            eventType: 'CHECKS_PROVISIONED',
-            quantity: checksToAdd,
-            referenceType: 'PAYMENT',
-            referenceId: providerPaymentId,
-          },
-        });
-
-        // Record Audit Event
-        await prisma.auditEvent.create({
-          data: {
-            tenantId: order.tenantId,
-            action: 'PAYMENT_CAPTURE',
-            entityType: 'PAYMENT',
-            entityId: providerPaymentId,
-            metadata: JSON.stringify({
-              orderId: order.id,
+          // Persist Payment Record
+          await tx.payment.upsert({
+            where: { providerPaymentId },
+            update: { status: 'CAPTURED', amountMinor },
+            create: {
+              paymentOrderId: order.id,
+              providerPaymentId,
+              method,
+              status: 'CAPTURED',
               amountMinor: order.amountMinor,
+              capturedAt: new Date(),
+              rawReference: JSON.stringify(paymentEntity),
+            },
+          });
+
+          // Provision Entitlements
+          const checksToAdd = order.plan.includedChecks || 100;
+          await tx.tenant.update({
+            where: { id: order.tenantId },
+            data: {
+              checkQuota: { increment: checksToAdd },
               plan: order.plan.code,
-            }),
-          },
+            },
+          });
+
+          // Record in Usage Ledger
+          await tx.usageLedger.create({
+            data: {
+              tenantId: order.tenantId,
+              eventType: 'CHECKS_PROVISIONED',
+              quantity: checksToAdd,
+              referenceType: 'PAYMENT',
+              referenceId: providerPaymentId,
+            },
+          });
+
+          // Record Audit Event
+          await tx.auditEvent.create({
+            data: {
+              tenantId: order.tenantId,
+              action: 'PAYMENT_CAPTURE',
+              entityType: 'PAYMENT',
+              entityId: providerPaymentId,
+              metadata: JSON.stringify({
+                orderId: order.id,
+                amountMinor: order.amountMinor,
+                plan: order.plan.code,
+              }),
+            },
+          });
         });
       }
     }
@@ -308,3 +332,4 @@ export async function processRazorpayWebhook(
 
   return { status: 'SUCCESS' };
 }
+

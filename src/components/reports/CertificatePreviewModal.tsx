@@ -54,13 +54,13 @@ export const CertificatePreviewModal: React.FC<CertificatePreviewModalProps> = (
             <Award className="w-5 h-5 text-amber-400" />
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                Official Engineering Quality Certificate
+                Engineering Quality Review Report
                 <span className="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 font-mono font-bold border border-sky-500/20">
                   {cert.certificateId}
                 </span>
               </h3>
               <p className="text-[11px] text-slate-400">
-                Cryptographically certified compliance audit signed by Spandsons Engineering QA.
+                Evidence-backed inspection findings with verifiable SHA-256 integrity hash.
               </p>
             </div>
           </div>
@@ -98,13 +98,13 @@ export const CertificatePreviewModal: React.FC<CertificatePreviewModalProps> = (
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-white/10">
               <div>
                 <span className="text-[10px] font-mono tracking-widest text-sky-400 font-bold uppercase block">
-                  Spandsons Horizon Engineering Pvt. Ltd.
+                  {cert.organization}
                 </span>
                 <h2 className="text-xl font-black text-white tracking-tight mt-1">
-                  ENGINEERING QUALITY AUDIT CERTIFICATE
+                  ENGINEERING QUALITY REVIEW REPORT
                 </h2>
                 <div className="text-xs text-slate-400 font-mono mt-1">
-                  Governing Standard: <span className="text-slate-200 font-bold">{report.standard}</span> &bull; Rev Class 3
+                  Governing Standard: <span className="text-slate-200 font-bold">{report.standard}</span>
                 </div>
               </div>
 
@@ -230,20 +230,20 @@ export const CertificatePreviewModal: React.FC<CertificatePreviewModalProps> = (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-white/10 text-xs font-mono">
               <div className="space-y-1">
                 <div className="h-10 flex items-end">
-                  <span className="font-serif italic text-sky-400 text-lg">Pravin R.</span>
+                  <span className="text-sky-400 font-semibold">{cert.leadAuditor}</span>
                 </div>
                 <div className="border-t border-white/20 pt-1 text-[11px]">
-                  <strong>Lead Quality Architect:</strong> {cert.leadAuditor}
-                  <span className="block text-[10px] text-slate-500">Professional Engineering License: PE-IND-48910</span>
+                  <strong>Lead Quality Reviewer:</strong> {cert.leadAuditor}
+                  <span className="block text-[10px] text-slate-500">Automated Inspection &amp; Review Completed</span>
                 </div>
               </div>
               <div className="space-y-1">
                 <div className="h-10 flex items-end">
-                  <span className="font-serif italic text-emerald-400 text-lg">Gogulnath S.</span>
+                  <span className="text-emerald-400 font-semibold">{cert.approverAuthority}</span>
                 </div>
                 <div className="border-t border-white/20 pt-1 text-[11px]">
-                  <strong>Director of Engineering QA:</strong> {cert.approverAuthority}
-                  <span className="block text-[10px] text-slate-500">Authorized for Manufacturing Release: {new Date(report.timestamp).toLocaleDateString()}</span>
+                  <strong>Verification Authority:</strong> {cert.approverAuthority}
+                  <span className="block text-[10px] text-slate-500">Decision Recorded: {new Date(report.timestamp).toLocaleDateString()}</span>
                 </div>
               </div>
             </div>

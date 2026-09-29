@@ -1,11 +1,14 @@
 import { NextRequest } from 'next/server';
-import { resolveTenant } from '@/lib/tenant-resolver';
+import { requirePermission, handleAuthError } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-v1-response';
+import { recordAuditEvent } from '@/lib/audit/audit-logger';
 
 export async function POST(req: NextRequest) {
   try {
-    const tenant = await resolveTenant(req);
+    const authCtx = await requirePermission(req, 'billing:manage');
+    const tenant = authCtx.tenant;
+    const user = authCtx.user;
 
     const subscription = await prisma.subscription.findFirst({
       where: {
@@ -24,14 +27,13 @@ export async function POST(req: NextRequest) {
       data: { cancelAtPeriodEnd: true },
     });
 
-    await prisma.auditEvent.create({
-      data: {
-        tenantId: tenant.id,
-        action: 'SUBSCRIPTION_CANCEL_SCHEDULED',
-        entityType: 'SUBSCRIPTION',
-        entityId: subscription.id,
-        metadata: JSON.stringify({ currentPeriodEnd: subscription.currentPeriodEnd }),
-      },
+    await recordAuditEvent({
+      tenantId: tenant.id,
+      actorId: user.id,
+      action: 'SUBSCRIPTION_CANCEL_SCHEDULED',
+      entityType: 'SUBSCRIPTION',
+      entityId: subscription.id,
+      metadata: { currentPeriodEnd: subscription.currentPeriodEnd },
     });
 
     return apiSuccess({
@@ -44,6 +46,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: any) {
+    const authResp = handleAuthError(err);
+    if (authResp) return authResp;
     return apiError('SUBSCRIPTION_CANCEL_FAILED', err.message || 'Failed to cancel subscription', 500);
   }
 }

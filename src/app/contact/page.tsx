@@ -37,10 +37,17 @@ export default function ContactPage() {
     setIsSubmitting(true);
     setTimeout(() => {
       setIsSubmitting(false);
-      const generatedRef = `ENG-${Math.floor(1000 + Math.random() * 9000)}-2026`;
+      const randArr = new Uint32Array(1);
+      if (typeof window !== 'undefined' && window.crypto) {
+        window.crypto.getRandomValues(randArr);
+      }
+      const refNum = 1000 + (randArr[0] % 9000);
+      const generatedRef = `ENG-${refNum}-2026`;
       setSubmittedRef(generatedRef);
     }, 900);
   };
+
+
 
   return (
     <div className="min-h-screen bg-[#060B14] text-slate-100 flex flex-col font-sans">
