@@ -16,11 +16,13 @@ export async function GET(req: NextRequest) {
   const exp = parseInt(expStr, 10);
   const storage = getStorageProvider();
 
-  if (storage instanceof PrivateLocalStorageProvider) {
-    const isValid = storage.verifyDownloadToken(key, exp, token);
-    if (!isValid) {
-      return apiError('FORBIDDEN', 'Download authorization signature is invalid or expired.', 403);
-    }
+  if (!(storage instanceof PrivateLocalStorageProvider)) {
+    return apiError('BAD_REQUEST', 'Direct proxy download is only supported in local storage mode.', 400);
+  }
+
+  const isValid = storage.verifyDownloadToken(key, exp, token);
+  if (!isValid) {
+    return apiError('FORBIDDEN', 'Download authorization signature is invalid or expired.', 403);
   }
 
   try {

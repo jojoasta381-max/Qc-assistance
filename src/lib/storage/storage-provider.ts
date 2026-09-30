@@ -273,22 +273,42 @@ export class S3StorageProvider implements StorageProvider {
   private bucket: string;
 
   constructor(bucket?: string, region?: string, endpoint?: string) {
-    this.bucket = bucket || process.env.AWS_S3_BUCKET || process.env.S3_BUCKET || 'spanqc-private-documents';
-    const s3Region = region || process.env.AWS_REGION || 'us-east-1';
+    this.bucket =
+      bucket ||
+      process.env.AWS_S3_BUCKET ||
+      process.env.S3_BUCKET ||
+      process.env.STORAGE_BUCKET ||
+      'spanqc-private-documents';
+    const s3Region =
+      region ||
+      process.env.AWS_REGION ||
+      process.env.STORAGE_REGION ||
+      'us-east-1';
 
     const s3Config: any = {
       region: s3Region,
     };
 
-    if (endpoint || process.env.AWS_S3_ENDPOINT || process.env.S3_ENDPOINT) {
-      s3Config.endpoint = endpoint || process.env.AWS_S3_ENDPOINT || process.env.S3_ENDPOINT;
+    const s3Endpoint =
+      endpoint ||
+      process.env.AWS_S3_ENDPOINT ||
+      process.env.S3_ENDPOINT ||
+      process.env.STORAGE_ENDPOINT;
+    if (s3Endpoint) {
+      s3Config.endpoint = s3Endpoint;
       s3Config.forcePathStyle = true;
     }
 
-    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    const accessKeyId =
+      process.env.AWS_ACCESS_KEY_ID ||
+      process.env.STORAGE_ACCESS_KEY;
+    const secretAccessKey =
+      process.env.AWS_SECRET_ACCESS_KEY ||
+      process.env.STORAGE_SECRET_KEY;
+    if (accessKeyId && secretAccessKey) {
       s3Config.credentials = {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        accessKeyId,
+        secretAccessKey,
       };
     }
 
@@ -438,12 +458,19 @@ export function getStorageProvider(): StorageProvider {
     return defaultStorageProvider;
   }
 
-  // If AWS S3 credentials and bucket are provided, use S3StorageProvider
-  if (
-    (process.env.AWS_S3_BUCKET || process.env.S3_BUCKET) &&
-    process.env.AWS_ACCESS_KEY_ID &&
-    process.env.AWS_SECRET_ACCESS_KEY
-  ) {
+  const hasBucket =
+    process.env.AWS_S3_BUCKET ||
+    process.env.S3_BUCKET ||
+    process.env.STORAGE_BUCKET;
+  const hasAccessKey =
+    process.env.AWS_ACCESS_KEY_ID ||
+    process.env.STORAGE_ACCESS_KEY;
+  const hasSecretKey =
+    process.env.AWS_SECRET_ACCESS_KEY ||
+    process.env.STORAGE_SECRET_KEY;
+
+  // If S3/R2/MinIO credentials and bucket are provided, use S3StorageProvider
+  if (hasBucket && hasAccessKey && hasSecretKey) {
     defaultStorageProvider = new S3StorageProvider();
   } else {
     // Default to private local disk storage with cryptographic signed URL tokens

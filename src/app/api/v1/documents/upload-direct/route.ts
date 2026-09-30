@@ -24,7 +24,9 @@ async function handleUpload(req: NextRequest) {
     if (storage instanceof PrivateLocalStorageProvider) {
       isAuthorized = storage.verifyPresignedToken(key, mime, exp, token);
     } else {
-      isAuthorized = true; // S3 handles presigned tokens at S3 gateway
+      // In S3 mode, presigned uploads are handled directly by the S3 gateway.
+      // Direct proxy upload with HMAC token is not authorized.
+      isAuthorized = false;
     }
     if (!isAuthorized) {
       return apiError('FORBIDDEN', 'Invalid or expired upload signature token.', 403);

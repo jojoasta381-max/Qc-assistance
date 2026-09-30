@@ -22,8 +22,12 @@ export interface RazorpayOrderResponse {
   key_id: string;
   notes: Record<string, string>;
 }
-
 import { isProduction } from '@/lib/config/app-mode';
+
+/**
+ * Authoritative billing status. Live payments are NOT active.
+ */
+export const BILLING_STATUS = 'NOT_LIVE';
 
 export function getRazorpayConfig() {
   const keyId = process.env.RAZORPAY_KEY_ID;
