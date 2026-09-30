@@ -25,11 +25,14 @@ export function getValidatedConfig(): ValidatedConfig {
   }
 
   const appMode = getAppMode();
-  const authSecret = process.env.AUTH_SECRET;
-  const databaseUrl = process.env.DATABASE_URL;
-  const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
-  const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
-  const razorpayWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const authSecret = process.env.AUTH_SECRET?.replace(/^["']|["']$/g, '').trim();
+  let databaseUrl = process.env.DATABASE_URL?.replace(/^["']|["']$/g, '').trim();
+  if (databaseUrl) {
+    process.env.DATABASE_URL = databaseUrl;
+  }
+  const razorpayKeyId = process.env.RAZORPAY_KEY_ID?.replace(/^["']|["']$/g, '').trim();
+  const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET?.replace(/^["']|["']$/g, '').trim();
+  const razorpayWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET?.replace(/^["']|["']$/g, '').trim();
 
   if (!databaseUrl || (!databaseUrl.startsWith('postgresql://') && !databaseUrl.startsWith('postgres://'))) {
     throw new Error(

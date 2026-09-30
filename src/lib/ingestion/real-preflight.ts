@@ -1,3 +1,4 @@
+import '@/lib/dom-polyfill';
 import crypto from 'crypto';
 import sharp from 'sharp';
 import { PDFParse } from 'pdf-parse';

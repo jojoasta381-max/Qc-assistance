@@ -469,8 +469,12 @@ export function getStorageProvider(): StorageProvider {
     process.env.AWS_SECRET_ACCESS_KEY ||
     process.env.STORAGE_SECRET_KEY;
 
-  // If S3/R2/MinIO credentials and bucket are provided, use S3StorageProvider
-  if (hasBucket && hasAccessKey && hasSecretKey) {
+  // S3 is activated if explicit keys are provided, STORAGE_PROVIDER='s3',
+  // or running inside AWS ECS with an IAM Task Role (AWS_CONTAINER_CREDENTIALS_RELATIVE_URI)
+  const isExplicitS3 = process.env.STORAGE_PROVIDER?.toLowerCase() === 's3';
+  const hasIamRole = Boolean(process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI || process.env.AWS_EXECUTION_ENV);
+
+  if (hasBucket && ((hasAccessKey && hasSecretKey) || isExplicitS3 || hasIamRole)) {
     defaultStorageProvider = new S3StorageProvider();
   } else {
     // Default to private local disk storage with cryptographic signed URL tokens

@@ -45,3 +45,12 @@ next-env.d.ts
 
 # local private storage
 /.private_storage/
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfplan
+tfplan
+
