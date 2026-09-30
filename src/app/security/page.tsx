@@ -148,11 +148,11 @@ export default function SecurityPage() {
                 Quality Traceability
               </span>
               <h2 className="text-xl font-bold text-white">
-                Cryptographic Audit Certificates
+                Cryptographic QC Review Reports
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Each generated compliance report is signed with a deterministic SHA-256 hash of the source schematic, applied standard ruleset version, and discrepancies dataset for immutable non-repudiation.
+              Each generated QC review report is sealed with a deterministic SHA-256 hash of the source schematic, applied standard ruleset version, and discrepancies dataset for immutable non-repudiation.
             </p>
             <ul className="space-y-2 text-xs text-slate-400 pt-2 border-t border-white/5 font-mono">
               <li className="flex items-center gap-2">

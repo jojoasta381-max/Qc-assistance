@@ -116,7 +116,7 @@ export const CertificatePreviewModal: React.FC<CertificatePreviewModalProps> = (
                       : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
                   }`}
                 >
-                  DISPOSITION: {isPass ? 'CERTIFIED PASS' : 'REJECT / ACTION REQ.'}
+                  DISPOSITION: {isPass ? 'QC REVIEW: PASS' : 'QC REVIEW: ACTION REQ.'}
                 </span>
                 <div className="text-[10px] font-mono text-slate-400 mt-1">
                   Report ID: {report.id}

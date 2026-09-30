@@ -106,7 +106,7 @@ export default function LoginPage() {
             </div>
             <h1 className="text-2xl font-extrabold text-white">Sign In to QC Portal</h1>
             <p className="text-xs text-slate-400">
-              Access your plant schematics, netlists, and compliance audit certificates.
+              Access your plant schematics, netlists, and engineering QC review reports.
             </p>
           </div>
 

@@ -261,7 +261,7 @@ export default function AppReportsPage() {
                     <button
                       onClick={() => handleOpenCertificate(rec.diagramName)}
                       className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-sky-400 hover:text-white transition flex items-center gap-1 text-[11px]"
-                      title="Inspect Certificate Preview"
+                      title="Inspect QC Report Preview"
                     >
                       <Eye className="w-3 h-3" />
                       <span>View</span>

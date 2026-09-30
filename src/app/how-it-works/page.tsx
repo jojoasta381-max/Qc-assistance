@@ -50,7 +50,7 @@ const PIPELINE_STAGES = [
     title: 'Automated Standards Verification Engine',
     subtitle: 'Deterministic rule evaluation against IPC & UL standards',
     description:
-      'The extracted graph is audited against 156+ standard rules. The engine checks conductor continuous ampacities against IPC/WHMA-A-620 Table 4-2, equipment grounding sizing against UL 508A Table 15.1, and terminal crimp specifications.',
+      'The extracted graph is audited against standard rules (with 20 active deterministic production rules, extensible up to 156 catalog specifications). The engine checks conductor continuous ampacities against IPC/WHMA-A-620 Table 4-2, equipment grounding sizing against UL 508A Table 15.1, and terminal crimp specifications.',
     input: 'Extracted Netlist + Standard Preset (IPC-WHMA-A-620 Class 3)',
     transformation: 'Rule comparison: Net W-103 carries 15A continuous but lacks minimum 16 AWG notation',
     output: '24 Discrepancy flags (6 Critical, 10 Major, 8 Minor)',
@@ -100,8 +100,8 @@ export default function HowItWorksPage() {
           <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
             How Wiring Diagram QC Works
           </h1>
-          <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
-            From raw engineering drawing manuals to certified quality inspection reports in 5 verifiable, deterministic stages.
+          <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-3xl mx-auto">
+            AI-assisted quality checking that helps engineering teams review wiring diagrams more efficiently — while keeping engineers in control.
           </p>
         </div>
 

@@ -141,7 +141,7 @@ export const StandardsView: React.FC<StandardsViewProps> = ({
 
               <div className="mt-3 pt-3 border-t border-slate-800 text-xs">
                 <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider block mb-1.5">
-                  Core Inspection Rules ({std.rulesCount} automated checks)
+                  Standard Specifications ({std.rulesCount} catalog checks)
                 </span>
                 <ul className="space-y-1.5 text-slate-300">
                   {std.keyChecks.map((check, i) => (

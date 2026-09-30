@@ -213,7 +213,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                           if (sample) exportQCReportToPrintablePDF(sample.sampleReport);
                         }}
                         className="p-1.5 rounded-lg text-purple-300 hover:text-white hover:bg-white/10 transition"
-                        title="Download PDF Certificate"
+                        title="Download PDF QC Report"
                       >
                         <FileText className="w-4 h-4" />
                       </button>

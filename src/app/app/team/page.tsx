@@ -104,7 +104,7 @@ export default function AppTeamPage() {
             Team Members &amp; Role-Based Access
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Manage organization members, assign inspection roles, and control audit certificate approval permissions.
+            Manage organization members, assign inspection roles, and control QC review report approval permissions.
           </p>
         </div>
 
@@ -239,7 +239,7 @@ export default function AppTeamPage() {
               <li>&bull; Configure Custom Plant SOPs</li>
               <li>&bull; Review &amp; Override Discrepancies</li>
               <li>&bull; Invite Inspectors &amp; Auditors</li>
-              <li>&bull; Export Certified Audit Reports</li>
+              <li>&bull; Export QC Review Reports</li>
             </ul>
           </div>
 
@@ -257,7 +257,7 @@ export default function AppTeamPage() {
             <div className="font-bold text-slate-400">VIEWER / AUDITOR</div>
             <ul className="space-y-1 text-slate-300 text-[11px]">
               <li>&bull; Read-Only Inspection History</li>
-              <li>&bull; Download Signed Certificates</li>
+              <li>&bull; Download QC Review Reports</li>
               <li>&bull; View Quality Pareto Analytics</li>
               <li>&bull; No Schematic Modification</li>
             </ul>

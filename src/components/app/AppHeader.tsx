@@ -24,7 +24,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenMobileMenu }) => {
   const getSectionTitle = () => {
     if (pathname === '/app') return 'Plant Quality Overview';
     if (pathname.startsWith('/app/inspections')) return 'QC Inspection Wizard';
-    if (pathname.startsWith('/app/reports')) return 'Certified Audit Reports';
+    if (pathname.startsWith('/app/reports')) return 'QC Review Reports';
     if (pathname.startsWith('/app/editor')) return 'EasySchematic CAD Editor';
     if (pathname.startsWith('/app/standards')) return 'Standards & Custom SOPs';
     if (pathname.startsWith('/app/analytics')) return 'Plant Defect Analytics';
@@ -100,11 +100,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenMobileMenu }) => {
               <div className="space-y-2 text-xs">
                 <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5 space-y-0.5">
                   <div className="text-[11px] font-bold text-emerald-400 flex items-center justify-between">
-                    <span>Audit AUD-8492 Certified</span>
+                    <span>Audit AUD-8492 Complete</span>
                     <span className="text-[10px] font-mono text-slate-500">12m ago</span>
                   </div>
                   <p className="text-[11px] text-slate-300">
-                    WH-402 passed with 94/100 score. Signed PDF certificate generated.
+                    WH-402 evaluated with 94/100 score. Signed PDF QC report generated.
                   </p>
                 </div>
                 <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5 space-y-0.5">

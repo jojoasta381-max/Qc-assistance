@@ -4,7 +4,7 @@ import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
   title: 'Wiring Diagram QC Assistant • AI Quality Control SaaS | Spandsons Horizon Engineering',
-  description: 'AI-first commercial SaaS platform to inspect, validate, and certify wiring diagrams, cable harnesses, and schematics against IPC-620, UL 508A, and IPC-610 standards.',
+  description: 'AI-assisted quality checking that helps engineering teams review wiring diagrams more efficiently — while keeping engineers in control.',
 };
 
 export default function RootLayout({

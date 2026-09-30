@@ -214,8 +214,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </h1>
 
         {/* Supporting Copy */}
-        <p className="mt-6 text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed font-normal">
-          AI-powered quality control for wiring diagram manuals. Detect discrepancies, validate engineering standards, and generate audit-ready QC reports in minutes.
+        <p className="mt-6 text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed font-normal">
+          AI-assisted quality checking that helps engineering teams review wiring diagrams more efficiently — while keeping engineers in control.
         </p>
 
         {/* Primary & Secondary CTAs */}
@@ -294,7 +294,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Live Pipeline Architecture
               </div>
               <h3 className="text-lg font-bold text-white mt-0.5">
-                From Raw PDF Manual to Audit-Certified Report
+                From Raw PDF Manual to QC Review Report
               </h3>
             </div>
             <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
@@ -572,7 +572,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <th className="py-3 px-4">ID</th>
                   <th className="py-3 px-4">Description</th>
                   <th className="py-3 px-4">Severity</th>
-                  <th className="py-3 px-4">Confidence</th>
+                  <th className="py-3 px-4">Confidence (Illustrative)</th>
                   <th className="py-3 px-4">Evidence / Reference</th>
                 </tr>
               </thead>
@@ -635,6 +635,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </tbody>
             </table>
           </div>
+
+          <div className="mt-3 text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
+            <Info className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span>*Illustrative sample data for demonstration. Active QC engine executes 20 deterministic rules (overall benchmark status: INSUFFICIENT_DATA).</span>
+          </div>
         </div>
       </section>
 
@@ -653,89 +658,89 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Normal Plan: $1 */}
+          {/* Engineering Team: ₹9,999 */}
           <div className="tech-card p-8 flex flex-col justify-between space-y-6">
             <div>
-              <span className="text-xs font-mono uppercase font-bold text-slate-400">Trial Tier</span>
-              <h3 className="text-2xl font-bold text-white mt-1">Normal Plan</h3>
+              <span className="text-xs font-mono uppercase font-bold text-slate-400">Design Teams</span>
+              <h3 className="text-2xl font-bold text-white mt-1">Engineering Team</h3>
               <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-white">$1</span>
-                <span className="text-xs text-slate-400 font-mono">/ per check</span>
+                <span className="text-4xl font-extrabold text-white">₹9,999</span>
+                <span className="text-xs text-slate-400 font-mono">/ month</span>
               </div>
               <p className="mt-2 text-xs text-slate-400">
-                For independent inspectors and engineers checking occasional single manuals.
+                For harness design teams and quality engineers reviewing complex schematics.
               </p>
               <ul className="mt-6 space-y-3 text-xs text-slate-300">
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> 1 Full AI Quality Inspection</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> IPC-620 &amp; UL 508A Standards</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Interactive Report Viewer</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Printable PDF Export</li>
-              </ul>
-            </div>
-            <button
-              onClick={onStartInspection}
-              className="w-full py-3 rounded-full btn-secondary text-xs font-bold"
-            >
-              Start $1 Check
-            </button>
-          </div>
-
-          {/* Mid Plan: $5 (Most Popular) */}
-          <div className="tech-card p-8 border-2 border-sky-500/50 flex flex-col justify-between space-y-6 relative">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-sky-500 text-slate-950 text-[10px] font-mono font-bold uppercase tracking-wider">
-              Most Popular
-            </div>
-            <div>
-              <span className="text-xs font-mono uppercase font-bold text-sky-400">Harness Plants</span>
-              <h3 className="text-2xl font-bold text-white mt-1">Mid Plan</h3>
-              <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-white">$5</span>
-                <span className="text-xs text-slate-400 font-mono">/ 10-check pack</span>
-              </div>
-              <p className="mt-2 text-xs text-slate-400">
-                For wire harness assembly plants and contract EMS quality assurance teams.
-              </p>
-              <ul className="mt-6 space-y-3 text-xs text-slate-200">
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> 10 Automated Diagram Checks</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Interactive EasySchematic CAD Editor</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Discrepancy False-Positive Feedback Loop</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Multi-Tenant Team Workspace</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Excel XLSX &amp; PDF Exports</li>
-              </ul>
-            </div>
-            <button
-              onClick={onStartInspection}
-              className="w-full py-3 rounded-full btn-primary text-xs font-bold shadow-lg"
-            >
-              Get Mid Plan ($5)
-            </button>
-          </div>
-
-          {/* Max Plan: $10 */}
-          <div className="tech-card p-8 flex flex-col justify-between space-y-6">
-            <div>
-              <span className="text-xs font-mono uppercase font-bold text-slate-400">Enterprise</span>
-              <h3 className="text-2xl font-bold text-white mt-1">Max Plan</h3>
-              <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-white">$10</span>
-                <span className="text-xs text-slate-400 font-mono">/ month unlimited</span>
-              </div>
-              <p className="mt-2 text-xs text-slate-400">
-                For major panel builders, aerospace OEMs, and multi-plant operations.
-              </p>
-              <ul className="mt-6 space-y-3 text-xs text-slate-300">
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Unlimited Diagram Inspections</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Proprietary Custom Customer SOPs</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Multi-Tenant Database Isolation</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> On-Premise Air-Gapped Deployment Option</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Priority 24/7 Support &amp; SLA</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> 50 Diagram Checks / month</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> IPC-620 &amp; UL 508A Deterministic Rules</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Netlist &amp; Electrical Graph Generation</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Formal PDF &amp; 5-Sheet Excel QC Reports</li>
               </ul>
             </div>
             <button
               onClick={onOpenPricing}
               className="w-full py-3 rounded-full btn-secondary text-xs font-bold"
             >
-              Get Max Plan ($10)
+              Start Engineering Team
+            </button>
+          </div>
+
+          {/* Enterprise Team: ₹24,999 (Most Popular) */}
+          <div className="tech-card p-8 border-2 border-sky-500/50 flex flex-col justify-between space-y-6 relative">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-sky-500 text-slate-950 text-[10px] font-mono font-bold uppercase tracking-wider">
+              Most Popular
+            </div>
+            <div>
+              <span className="text-xs font-mono uppercase font-bold text-sky-400">Manufacturing Plants</span>
+              <h3 className="text-2xl font-bold text-white mt-1">Enterprise Team</h3>
+              <div className="mt-4 flex items-baseline gap-1">
+                <span className="text-4xl font-extrabold text-white">₹24,999</span>
+                <span className="text-xs text-slate-400 font-mono">/ month</span>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                For cable harness manufacturing plants and UL 508A panel builders.
+              </p>
+              <ul className="mt-6 space-y-3 text-xs text-slate-200">
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> 350 Diagram Checks / month</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Multi-Engineer Findings Review &amp; Approval</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Custom Plant SOP Rule Authoring</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Multi-Tenant Team Workspaces &amp; RBAC</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Dedicated Engineering Support (4h SLA)</li>
+              </ul>
+            </div>
+            <button
+              onClick={onOpenPricing}
+              className="w-full py-3 rounded-full btn-primary text-xs font-bold shadow-lg"
+            >
+              Start Enterprise Team
+            </button>
+          </div>
+
+          {/* Industrial Scale: ₹75,000+ */}
+          <div className="tech-card p-8 flex flex-col justify-between space-y-6">
+            <div>
+              <span className="text-xs font-mono uppercase font-bold text-slate-400">Industrial Scale</span>
+              <h3 className="text-2xl font-bold text-white mt-1">Industrial Scale</h3>
+              <div className="mt-4 flex items-baseline gap-1">
+                <span className="text-4xl font-extrabold text-white">₹75,000+</span>
+                <span className="text-xs text-slate-400 font-mono">/ month</span>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                For aerospace OEMs, defense contractors, and multi-plant enterprise groups.
+              </p>
+              <ul className="mt-6 space-y-3 text-xs text-slate-300">
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> 1,500+ Checks with Custom Ingestion Pipelines</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Dedicated Single-Tenant VPC or Air-Gapped Setup</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> Custom Component Library &amp; Symbol Training</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> SSO / SAML &amp; Enterprise Procurement Invoicing</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" /> 24/7 Dedicated Support with 1-hour Critical SLA</li>
+              </ul>
+            </div>
+            <button
+              onClick={onOpenPricing}
+              className="w-full py-3 rounded-full btn-secondary text-xs font-bold"
+            >
+              Contact Enterprise Sales
             </button>
           </div>
         </div>

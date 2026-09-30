@@ -259,15 +259,15 @@ export default function StandardsPage() {
             Supported Engineering Standards
           </h1>
           <p className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Deterministic compliance verification against global wire harness, industrial control panel, and electronic assembly standards. Over 400+ algorithmic rules executed in seconds.
+            Deterministic verification against global wire harness, industrial control panel, and electronic assembly standards. The active engine evaluates 20 core production rules from an extensible catalog of 400+ industry specifications.
           </p>
 
           {/* Quick Metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto pt-6">
             <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 text-left">
               <div className="text-2xl font-mono font-bold text-white">156</div>
-              <div className="text-xs text-slate-400 mt-1">IPC-WHMA-A-620 Rules</div>
-              <div className="text-[10px] text-emerald-400 font-mono mt-0.5">Classes 1, 2, 3</div>
+              <div className="text-xs text-slate-400 mt-1">IPC-WHMA-A-620 Catalog</div>
+              <div className="text-[10px] text-emerald-400 font-mono mt-0.5">Classes 1, 2, 3 (Illustrative Catalog)</div>
             </div>
             <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 text-left">
               <div className="text-2xl font-mono font-bold text-white">184</div>

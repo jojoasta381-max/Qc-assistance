@@ -53,7 +53,7 @@ const INDUSTRIES = [
       { label: 'Site Redo Penalty Avoidance', val: '$15k+' },
     ],
     standards: ['UL 508A 3rd Edition', 'NFPA 79', 'NEC Article 409'],
-    workflow: 'Schematic Ingestion &rarr; OCPD & Ground Trace &rarr; SCCR Derating Tree &rarr; Audit Certificate',
+    workflow: 'Schematic Ingestion &rarr; OCPD & Ground Trace &rarr; SCCR Derating Tree &rarr; QC Review Report',
   },
   {
     id: 'aerospace',
@@ -63,7 +63,7 @@ const INDUSTRIES = [
     painPoint:
       'Stringent AS9100 quality documentation demands full traceability for every conductor, crimp sleeve, and EMI shield pigtail termination under extreme thermal deratings.',
     solution:
-      'Class 3 aerospace standard rules enforce altitude/ambient thermal derating tables, shield grounding limits, and generate cryptographic SHA-256 inspection certificates.',
+      'Class 3 aerospace standard rules enforce altitude/ambient thermal derating tables, shield grounding limits, and generate cryptographic SHA-256 sealed QC reports.',
     metrics: [
       { label: 'FAA Audit Compliance', val: '100%' },
       { label: 'Traceability Coverage', val: 'Full Netlist' },
@@ -107,7 +107,7 @@ export default function SolutionsPage() {
   const aiHours = Math.round(monthlyDrawings * 0.05); // 3 mins per drawing
   const savedHours = totalManualHours - aiHours;
   const grossSavings = savedHours * hourlyEngineerRate;
-  const estimatedAppCost = monthlyDrawings * 5; // Mid tier $5/drawing
+  const estimatedAppCost = Math.round(24999 / 83); // Enterprise Team tier equivalent (~$300/month)
   const netMonthlySavings = Math.max(0, grossSavings - estimatedAppCost);
   const annualSavings = netMonthlySavings * 12;
 

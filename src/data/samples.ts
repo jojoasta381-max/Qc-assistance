@@ -21,7 +21,7 @@ export const SAMPLE_DIAGRAMS: SampleDiagram[] = [
     code: 'WH-402-REV-C',
     category: 'Wire Harness & Cable Assembly',
     standard: 'IPC-WHMA-A-620',
-    description: '12-pin military/aerospace harness linking ECU power distribution to actuator servos. Contains 156 automated checks based on IPC-620 Class 3 high-reliability criteria.',
+    description: '12-pin military/aerospace harness linking ECU power distribution to actuator servos. Contains 156 illustrative demo checks based on IPC-620 Class 3 criteria (Illustrative sample data for demonstration; production engine evaluates 20 core deterministic rules).',
     svgKey: 'wh-402',
     sampleReport: {
       id: 'QC-2026-0814',
