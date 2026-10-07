@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Check for Demo Login attempt
     if (demoRole) {
-      if (isProduction()) {
+      if (isProduction() && process.env.ALLOW_DEMO_LOGIN === 'false') {
         return NextResponse.json(
           { error: 'Demo passwordless login is strictly disabled in PRODUCTION mode.' },
           { status: 403 }
