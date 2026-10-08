@@ -198,33 +198,6 @@ export async function requireAuth(req: NextRequest): Promise<{ user: Authenticat
   }
 
   if (!token) {
-    // Staging / prototype fallback: resolve primary active user if no explicit token is present
-    const fallbackUser = await prisma.user.findFirst({
-      where: { status: 'ACTIVE' },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        tenantId: true,
-        status: true,
-      },
-    });
-
-    if (fallbackUser) {
-      const fallbackSession: SessionPayload = {
-        userId: fallbackUser.id,
-        email: fallbackUser.email,
-        name: fallbackUser.name,
-        role: fallbackUser.role,
-        tenantId: fallbackUser.tenantId,
-        tenantSlug: 'default',
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 86400 * 30,
-      };
-      return { user: fallbackUser, session: fallbackSession };
-    }
-
     throw new AuthError('UNAUTHORIZED', 'Authentication session required. Please log in.', 401);
   }
 
